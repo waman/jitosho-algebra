@@ -95,6 +95,43 @@ export abstract class CubicEquation {
     }
 }
 
+/** 
+ * Ref: 『Javaによるアルゴリズム事典』3次方程式 (cubic equation) Cardano.java
+ */
+function solveDepressed(p: number, q: number): number[] {
+    const disc = -(4*p*p*p + 27*q*q);
+
+    if(p === 0){  // This case is actually included in disc < 0
+        return [Math.cbrt(-q)];
+
+    }else if(q === 0){
+        // if(p >= 0) return [0];
+        if(p > 0) return [0];
+        const r = Math.sqrt(-p);
+        return [-r, 0, r];
+
+    }else if(disc === 0){
+        const r = Math.cbrt(q/2)
+        return [-2*r,  r];
+
+    }else if(disc < 0){
+        const w = Math.cbrt(-q/2 + Math.sqrt(-disc/108));
+        // the following w is needed when the above p === 0 case is removed
+        // const w = q > 0 ? Math.cbrt(-q/2 - Math.sqrt(-disc/108)):
+        //                   Math.cbrt(-q/2 + Math.sqrt(-disc/108));
+        return [w - p/(3*w)];
+
+    }else{
+        const r = 2 * Math.sqrt(-p/3),
+              t = Math.acos(3*q / (2*p * Math.sqrt(-p/3))),
+              x1 = r * Math.cos( t                / 3),
+              x2 = r * Math.cos((t + 2 * Math.PI) / 3),
+              x3 = r * Math.cos((t + 4 * Math.PI) / 3);
+        return [x1, x2, x3];
+    }
+
+}
+
 /**
  * Cubic equation in the form of *x³ + px + q = 0*.
  */
@@ -120,35 +157,7 @@ class DepressedCubicEquation extends CubicEquation {
     depressed(): CubicEquation { return this; }
 
     realRoots(): number[] {
-        const p = this.p, q = this.q, disc = this.discriminant;
-
-        if(p === 0){  // This case is actually included in disc < 0
-            return [Math.cbrt(-q)];
-
-        }else if(q === 0){
-            if(p >= 0) return [0];
-            const r = Math.sqrt(-p);
-            return [-r, 0, r];
-
-        }else if(disc === 0){
-            const r = Math.cbrt(q/2)
-            return [-2*r,  r];
-
-        }else if(disc < 0){
-            const w = Math.cbrt(-q/2 + Math.sqrt(-disc/108));
-            // the following w is needed when the above p === 0 case is removed
-            // const w = q > 0 ? Math.cbrt(-q/2 - Math.sqrt(-disc/108)):
-            //                   Math.cbrt(-q/2 + Math.sqrt(-disc/108));
-            return [w - p/(3*w)];
-
-        }else{
-            const r = 2 * Math.sqrt(-p/3),
-                  t = Math.acos(3*q / (2*p * Math.sqrt(-p/3))),
-                  x1 = r * Math.cos( t                / 3),
-                  x2 = r * Math.cos((t + 2 * Math.PI) / 3),
-                  x3 = r * Math.cos((t + 4 * Math.PI) / 3);
-            return [x1, x2, x3];
-        }
+        return solveDepressed(this.p, this.q);
     }
 
     // complexRoots(): Complex[] {
@@ -234,8 +243,13 @@ class GeneralCubicEquation extends CubicEquation{
         //           x3 = r * Math.cos((t + 4 * Math.PI) / 3) - b;
         //     return [x1, x2, x3];
         // }
-        const t = this.b / (3 * this.a);
-        return this.depressed().realRoots().map(rt => rt - t);
+        const b = this.b / this.a,
+              c = this.c / this.a,
+              d = this.d / this.a,
+              p = c - b*b/3,
+              q = 2*b*b*b/27 - b*c/3 + d;
+        const t = b/3;
+        return solveDepressed(p, q).map(rt => rt - t);
     }
 
     // complexRoots(): Complex[] {
