@@ -1045,6 +1045,37 @@ describe('CMath', () => {
             // additional hyperbolic functions
             assertEqualComplex(CMath.sech(z), z.cosh().reciprocal(), epsilon, `sech(${z})`);
             assertEqualComplex(CMath.csch(z), z.sinh().reciprocal(), epsilon, `csch(${z})`);
+
+            // round-like functions
+            assertEqualComplex(CMath.round(z), complex(Math.round(z.re), Math.round(z.im)), 0, `round(${z})`);
+            assertEqualComplex(CMath.round(z, 're'), complex(Math.round(z.re), z.im), 0, `round(${z}, 're')`);
+            assertEqualComplex(CMath.round(z, 'im'), complex(z.re, Math.round(z.im)), 0, `round(${z}, 'im')`);
+
+            assertEqualComplex(CMath.ceil(z), complex(Math.ceil(z.re), Math.ceil(z.im)), 0, `ceil(${z})`);
+            assertEqualComplex(CMath.ceil(z, 're'), complex(Math.ceil(z.re), z.im), 0, `ceil(${z}, 're')`);
+            assertEqualComplex(CMath.ceil(z, 'im'), complex(z.re, Math.ceil(z.im)), 0, `ceil(${z}, 'im')`);
+
+            assertEqualComplex(CMath.floor(z), complex(Math.floor(z.re), Math.floor(z.im)), 0, `floor(${z})`);
+            assertEqualComplex(CMath.floor(z, 're'), complex(Math.floor(z.re), z.im), 0, `floor(${z}, 're')`);
+            assertEqualComplex(CMath.floor(z, 'im'), complex(z.re, Math.floor(z.im)), 0, `floor(${z}, 'im')`);
+
+            assertEqualComplex(CMath.trunc(z), complex(Math.trunc(z.re), Math.trunc(z.im)), 0, `trunc(${z})`);
+            assertEqualComplex(CMath.trunc(z, 're'), complex(Math.trunc(z.re), z.im), 0, `trunc(${z}, 're')`);
+            assertEqualComplex(CMath.trunc(z, 'im'), complex(z.re, Math.trunc(z.im)), 0, `trunc(${z}, 'im')`);
+
+            
+            if(z.isGaussianInteger){
+                assertEqualComplex(CMath.round(z), z, 0);
+                assertEqualComplex(CMath.ceil(z), z, 0);
+                assertEqualComplex(CMath.floor(z), z, 0);
+                assertEqualComplex(CMath.trunc(z), z, 0);
+            }
+
+            assertEqualComplex(CMath.fround(z), complex(Math.fround(z.re), Math.fround(z.im)), 0, `fround(${z})`);
+            assertEqualComplex(CMath.fround(z, 're'), complex(Math.fround(z.re), z.im), 0, `fround(${z}, 're')`);
+            assertEqualComplex(CMath.fround(z, 'im'), complex(z.re, Math.fround(z.im)), 0, `fround(${z}, 'im')`);
+
+            assert.sameOrderedMembers(CMath.sign(z), [Math.sign(z.re), Math.sign(z.im)], `sign(${z})`);
         }
 
         repeat(100, () => test(randComplex()));

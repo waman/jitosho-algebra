@@ -953,6 +953,41 @@ export class CMath {
     static coth(z: Complex): Complex { return z.coth(); }
 
     static sqrt(z: Complex): Complex { return z.sqrt(); }
+    private static xround(z: Complex, part: 're' | 'im' | undefined, f: (x: number) => number): Complex {
+        switch(part){
+            case 're': return complex(f(z.re), z.im);
+            case 'im': return complex(z.re, f(z.im));
+            default: return complex(f(z.re), f(z.im));
+        }
+    }
+
+    static round(z: Complex, part?: 're' | 'im'): Complex {
+        return this.xround(z, part, x => Math.round(x));
+    }
+
+    static ceil(z: Complex, part?: 're' | 'im'): Complex {
+        return this.xround(z, part, x => Math.ceil(x));
+    }
+
+    static floor(z: Complex, part?: 're' | 'im'): Complex {
+        return this.xround(z, part, x => Math.floor(x));
+    }
+
+    static fround(z: Complex, part?: 're' | 'im'): Complex {
+        return this.xround(z, part, x => Math.fround(x));
+    }
+
+    static trunc(z: Complex, part?: 're' | 'im'): Complex {
+        return this.xround(z, part, x => Math.trunc(x));
+    }
+
+    static sign(z: Complex): [number, number] {
+        return [Math.sign(z.re), Math.sign(z.im)];
+    }
+
+    static random(): Complex {
+        return complex(Math.random(), Math.random());
+    }
 }
 
 const COMPLEX_PI = new ComplexReal(Math.PI);
