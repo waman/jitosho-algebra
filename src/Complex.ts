@@ -242,9 +242,6 @@ export abstract class Complex{
     public static get INFINITY(): Complex { return COMPLEX_INFINITY; }
     public static get NaN(): Complex { return COMPLEX_NAN; }
 
-    public static get PI(): Complex { return COMPLEX_PI; }
-    public static get E(): Complex { return COMPLEX_E; }
-
     static ofPolar(r: number, theta: number): Complex {
         return complex(r * Math.cos(theta), r * Math.sin(theta));
     }
@@ -553,7 +550,7 @@ class ComplexOne extends AbstractReal {
         throw new Error("Method not implemented.");
     }
 
-    exp(): Complex { return Complex.E; }
+    exp(): Complex { return CMath.E; }
     log(): Complex { return Complex.ZERO; }
 
     sqrt(): Complex { return Complex.ONE; }
@@ -918,6 +915,16 @@ export class CMath {
 
     private constructor(){}
 
+    public static get PI(): Complex { return COMPLEX_PI; }
+    public static get E(): Complex { return COMPLEX_E; }
+
+    public static get LN2(): Complex { return COMPLEX_LN2; }
+    public static get LOG2E(): Complex { return COMPLEX_LOG2E; }
+    public static get LN10(): Complex { return COMPLEX_LN10; }
+    public static get LOG10E(): Complex { return COMPLEX_LOG10E; }
+    public static get SQRT2(): Complex { return COMPLEX_SQRT2; }
+    public static get SQRT1_2(): Complex { return COMPLEX_SQRT1_2; }
+
     static exp(z: Complex): Complex { return z.exp(); }
     static log(z: Complex): Complex { return z.log(); }
 
@@ -950,3 +957,10 @@ export class CMath {
 
 const COMPLEX_PI = new ComplexReal(Math.PI);
 const COMPLEX_E = new ComplexReal(Math.E);
+
+const COMPLEX_LN2 = new ComplexReal(Math.LN2);
+const COMPLEX_LOG2E = new ComplexReal(Math.LOG2E);
+const COMPLEX_LN10 = new ComplexReal(Math.LN10);
+const COMPLEX_LOG10E = new ComplexReal(Math.LOG10E);
+const COMPLEX_SQRT2 = new ComplexReal(Math.SQRT2);
+const COMPLEX_SQRT1_2 = new ComplexReal(Math.SQRT1_2);

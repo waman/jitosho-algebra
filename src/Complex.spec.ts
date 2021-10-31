@@ -991,3 +991,63 @@ describe('Complex', () => {
         });
     });
 });
+
+describe('CMath', () => {
+
+    it('Constants defined at Math are also done at CMath as Complex', () => {
+        for(let prop in Object.getOwnPropertyDescriptors(Math)){
+            const pd = Object.getOwnPropertyDescriptor(Math, prop);
+            if(pd){
+                const val = pd.value;
+                if(typeof val === 'number'){
+                    const cpd = Object.getOwnPropertyDescriptor(CMath, prop);
+                    if(cpd !== undefined && cpd.get !== undefined){
+                        assertEqualComplex(cpd.get(), val, 0, `${prop} at CMath`);
+                    }else{
+                        assert.fail(`${prop} is not defined at CMath`);
+                    }
+                }
+            }
+        }
+    });
+
+    it('static functions that have the same name as a method of Complex should return the same result', () => {
+        function test(z: Complex){
+            assertEqualComplex(CMath.exp(z), z.exp(), epsilon, `exp(${z})`);
+            if(!z.isZero){
+                assertEqualComplex(CMath.log(z), z.log(), epsilon, `log(${z})`);
+            }else{
+                assert(CMath.log(z).isNaN, `log(${z})`);
+            }
+
+            assertEqualComplex(CMath.sin(z), z.sin(), epsilon, `sin(${z})`);
+            assertEqualComplex(CMath.cos(z), z.cos(), epsilon, `cos(${z})`);
+            assertEqualComplex(CMath.tan(z), z.tan(), epsilon, `tan(${z})`);
+            assertEqualComplex(CMath.cot(z), z.cot(), epsilon, `cot(${z})`);
+
+            assertEqualComplex(CMath.sinh(z), z.sinh(), epsilon, `sinh(${z})`);
+            assertEqualComplex(CMath.cosh(z), z.cosh(), epsilon, `cosh(${z})`);
+            assertEqualComplex(CMath.tanh(z), z.tanh(), epsilon, `tanh(${z})`);
+            assertEqualComplex(CMath.coth(z), z.coth(), epsilon, `coth(${z})`);
+
+            assertEqualComplex(CMath.sqrt(z), z.sqrt(), epsilon, `sqrt(${z})`);
+        }
+
+        repeat(100, () => test(randComplex()));
+    });
+
+    it('additional methods should return the proper value', () => {
+        function test(z: Complex){
+            // additional trigonometric functions
+            assertEqualComplex(CMath.sec(z), z.cos().reciprocal(), epsilon, `sec(${z})`);
+            assertEqualComplex(CMath.csc(z), z.sin().reciprocal(), epsilon, `csc(${z})`);
+
+            // additional hyperbolic functions
+            assertEqualComplex(CMath.sech(z), z.cosh().reciprocal(), epsilon, `sech(${z})`);
+            assertEqualComplex(CMath.csch(z), z.sinh().reciprocal(), epsilon, `csch(${z})`);
+        }
+
+        repeat(100, () => test(randComplex()));
+    });
+
+});
