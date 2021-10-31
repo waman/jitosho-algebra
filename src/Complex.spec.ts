@@ -1,22 +1,80 @@
 import { assert } from 'chai';
-import { CMath, Complex } from './Complex';
+import { complex, CMath, Complex } from './Complex';
+
+const epsilon = 1e-14;
+const epsi = 1e-11;
+
+function assertEqualComplex(
+        actual: Complex, expected: Complex | number, epsilon: number, message: string = ''){
+    assert(actual.equals(expected, epsilon), message + `: ${actual} != ${expected}`)
+}
+
+function repeat(n: number, f: () => void): void {
+    for(let i = 0; i < n; i++) f();
+}
+
+function rand(): number {
+    return Math.random() < 0.5 ? Math.random() : Math.round(Math.random());
+}
+
+function randComplex(): Complex {
+    return complex(rand(), rand());
+}
 
 describe('Complex', () => {
 
-    const c = new Complex(3, 7);
-    const epsilon = 1e-14
-    const epsi = 1e-10;
+    describe('#complex() factory method and the predefined constants', () => {
 
-    function rand(): number { return Math.random() * 100 - 50; }
+        it('Predefined constants should have the proper property values', () => { 
+            assert(Complex.ZERO.re === 0);
+            assert(Complex.ZERO.im === 0);
 
-    function repeat(n: number, f: () => void): void {
-        for(let i = 0; i < n; i++) f();
-    }
+            assert(Complex.ONE.re === 1);
+            assert(Complex.ONE.im === 0);
 
-    function assertEqualComplex(
-            actual: Complex, expected: Complex | number, epsilon: number, message: string = ''){
-        assert(actual.equals(expected, epsilon), message + `: ${actual} != ${expected}`)
-    }
+            assert(Complex.INFINITY.re === Infinity);
+            assert(Complex.INFINITY.im === Infinity);
+
+            assert.isNaN(Complex.NaN.re);
+            assert.isNaN(Complex.NaN.im);
+        });
+
+        it('A Complex object is the Complex.INFINITY if at least one of the arguments of constructor is Infinity', () => {
+            const table: Complex[] = [
+                complex(2, Infinity),
+                complex(Infinity, 3),
+                complex(Infinity, Infinity),
+                complex(4, -Infinity),
+                complex(-Infinity, 5),
+                complex(-Infinity, -Infinity),
+
+                complex(Infinity, -Infinity),
+                complex(-Infinity, Infinity),
+            ]
+
+            table.forEach(c => {
+                assert(c.isInfinite);
+                assert.isFalse(c.isFinite);
+                assert.isFalse(isFinite(c.re));
+                assert.isFalse(isFinite(c.im));
+            });
+        });
+
+
+        it('A Complex object is Complex.NaN if at least one of the arguments of constructor is NaN', () => {
+            const table: Complex[] = [
+                complex(NaN, NaN),
+                complex(NaN, 2),
+                complex(3, NaN)
+            ]
+
+            table.forEach(c => {
+                assert(c.isNaN);
+                assert.isNaN(c.re);
+                assert.isNaN(c.im);
+            });
+        });
+    });
 
     describe('#toString()', () => {
 
@@ -29,17 +87,17 @@ describe('Complex', () => {
                 [Complex.I, 'i'],
                 [Complex.MINUS_I, '-i'],
 
-                [new Complex(2, 0), '2'],
-                [new Complex(0, 2), '2i'],
-                [new Complex(-2, 0), '-2'],
-                [new Complex(0, -2), '-2i'],
+                [complex(2, 0), '2'],
+                [complex(0, 2), '2i'],
+                [complex(-2, 0), '-2'],
+                [complex(0, -2), '-2i'],
 
-                [new Complex(3, 4), '3+4i'],
-                [new Complex(-3, 4), '-3+4i'],
-                [new Complex(3, -4), '3-4i'],
-                [new Complex(-3, -4), '-3-4i'],
+                [complex(3, 4), '3+4i'],
+                [complex(-3, 4), '-3+4i'],
+                [complex(3, -4), '3-4i'],
+                [complex(-3, -4), '-3-4i'],
 
-                [Complex.INFINITY, '∞'],
+                [Complex.INFINITY, '∞(C)'],
                 [Complex.NaN, 'NaN(C)']
             ]
 
@@ -50,1023 +108,885 @@ describe('Complex', () => {
     });
 
     describe('#equals() should return the proper value', () => {
-        const c1 = new Complex(2, 3), c2 = new Complex(2, 3);
+        const c1 = complex(2, 3), c2 = complex(2, 3);
         assert.isFalse(c1 === c2);
         assert(c1.equals(c2));
 
         // Infinity
         assert(Infinity === Infinity); // The language spec
-        assert(new Complex(Infinity, 1).equals(Complex.INFINITY));
+        assert(complex(Infinity, 1).equals(Complex.INFINITY));
 
         // NaN
         assert.isFalse(NaN === NaN); // The language spec
-        assert.isFalse(new Complex(NaN, 1).equals(Complex.NaN));
+        assert.isFalse(complex(NaN, 1).equals(Complex.NaN));
     });
 
-    describe('boolean properties', () => {
+    const INT = complex(3, 0);
+    const _INT = complex(-4, 0);
+    const GAUSS_INT1 = complex(5, 6);
+    const GAUSS_INT2 = complex(7, -8);
+    const GAUSS_INT3 = complex(-9, -10);
+    const GAUSS_INT4 = complex(-11, 12);
 
-        it('#isReal() should return the proper value', () => {
-            const table: [Complex, boolean][] = [
-                [new Complex(2, 0), true],
-                [new Complex(0, 3), false],
-                [c, false],
+    const REAL = complex(2.3);
+    const _REAL = complex(-4.5)
+    const IMAGINARY = complex(0, 6.7);
+    const _IMAGINARY = complex(0, -8.9);
+    const NOT_GAUSS_INT1 = complex(2, 3.4);
+    const NOT_GAUSS_INT2 = complex(5.6, 7);
 
-                [Complex.ZERO, true],
-                [Complex.ONE, true],
-                [Complex.I, false],
-                [Complex.MINUS_ONE, true],
-                [Complex.MINUS_I, false],
+    const COMPLEX1 = complex(0.1, 2.3);
+    const COMPLEX2 = complex(4.5, -6.7);
+    const COMPLEX3 = complex(-8.9, -1.2);
+    const COMPLEX4 = complex(-3.4, 5.6);
 
-                [Complex.INFINITY, false],
-                [Complex.NaN, false]
-            ]
+    const complexes: Complex[] = [
+        Complex.ZERO, Complex.ONE, Complex.MINUS_ONE, Complex.I, Complex.MINUS_I,
+        INT, _INT, GAUSS_INT1, GAUSS_INT2, GAUSS_INT3, GAUSS_INT4,
+        REAL, _REAL, IMAGINARY, _IMAGINARY, NOT_GAUSS_INT1, NOT_GAUSS_INT2,
+        COMPLEX1, COMPLEX2, COMPLEX3, COMPLEX4,
+        Complex.INFINITY, Complex.NaN
+    ];
 
-            table.forEach(entry => {
-                assert(entry[0].isReal() === entry[1], entry[0] + '#isReal()');
+    describe('properties', () => {
+
+        describe('boolean properties', () => {
+    
+            it('#isReal should return the proper value', () => {
+                const expected = [
+                    Complex.ZERO, Complex.ONE, Complex.MINUS_ONE,
+                    INT, _INT, REAL, _REAL
+                ];
+                const actual = complexes.filter(c => c.isReal);
+                assert.sameMembers(actual, expected);
+            });
+    
+            it('#isImaginary should return the proper value', () => {
+                const expected = [
+                    Complex.I, Complex.MINUS_I,
+                    IMAGINARY, _IMAGINARY
+                ];
+                const actual = complexes.filter(c => c.isImaginary);
+                assert.sameMembers(actual, expected);
+            });
+    
+            it('#isZero should return the proper value', () => {
+                const expected = [Complex.ZERO];
+                const actual = complexes.filter(c => c.isZero);
+                assert.sameMembers(actual, expected);
+            });
+    
+            it('#isOne should return the proper value', () => {
+                const expected = [Complex.ONE];
+                const actual = complexes.filter(c => c.isOne);
+                assert.sameMembers(actual, expected);
+            });
+    
+            it('#isFinite should return the proper value', () => {
+                const expected = complexes.filter(c => !(c.isInfinite || c.isNaN));
+                const actual = complexes.filter(c => c.isFinite);
+                assert.sameMembers(actual, expected);
+            });
+    
+            it('#isInfinite should return the proper value', () => {
+                const expected = [Complex.INFINITY];
+                const actual = complexes.filter(c => c.isInfinite);
+                assert.sameMembers(actual, expected);
+            });
+    
+            it('#isNaN should return the proper value', () => {
+                const expected = [Complex.NaN];
+                const actual = complexes.filter(c => c.isNaN);
+                assert.sameMembers(actual, expected);
+            });
+    
+            it('#isInteger should return the proper value', () => {
+                const expected = [
+                    Complex.ZERO, Complex.ONE, Complex.MINUS_ONE,
+                    INT, _INT
+                ];
+                const actual = complexes.filter(c => c.isInteger);
+                assert.sameMembers(actual, expected);
+            });
+    
+            it('#isGaussianInteger should return the proper value', () => {
+                const expected = [
+                    Complex.ZERO, Complex.ONE, Complex.MINUS_ONE, Complex.I, Complex.MINUS_I,
+                    INT, _INT, GAUSS_INT1, GAUSS_INT2, GAUSS_INT3, GAUSS_INT4
+                ];
+                const actual = complexes.filter(c => c.isGaussianInteger);
+                assert.sameMembers(actual, expected);
             });
         });
 
-        it('#isImaginary() should return the proper value', () => {
-            const table: [Complex, boolean][] = [
-                [new Complex(2, 0), false],
-                [new Complex(0, 3), true],
-                [c, false],
+        describe('Numerical Properties', () => {
 
-                [Complex.ZERO, false],
-                [Complex.ONE, false],
-                [Complex.I, true],
-                [Complex.MINUS_ONE, false],
-                [Complex.MINUS_I, true],
+            describe('Unary Operations', () => {
 
-                [Complex.INFINITY, false],
-                [Complex.NaN, false]
-            ]
-
-            table.forEach(entry => {
-                assert(entry[0].isImaginary() === entry[1], entry[0] + '#isImaginary()');
-            });
-        });
-
-        it('#isInteger() should return the proper value', () => {
-            const table: [Complex, boolean][] = [
-                [new Complex(3, 0), true],
-                [new Complex(3.5, 0), false],
-                [new Complex(-4, 0), true],
-                [new Complex(-4.5, 0), false],
-                [new Complex(0, 5), false],
-                [new Complex(6, 7), false],
-
-                [Complex.ZERO, true],
-                [Complex.MINUS_ONE, true],
-                [Complex.I, false],
-                [Complex.MINUS_I, false],
-
-                [Complex.INFINITY, false],
-                [Complex.NaN, false]
-            ]
-
-            table.forEach(entry => {
-                assert(entry[0].isInteger() === entry[1], entry[0] + '#isInteger()');
-            });
-        });
-
-        it('#isGaussianInteger() should return the proper value', () => {
-            const table: [Complex, boolean][] = [
-                [new Complex(3, 0), true],
-                [new Complex(3.5, 0), false],
-                [new Complex(-4, 0), true],
-                [new Complex(-4.5, 0), false],
-                [new Complex(0, 5), true],
-                [new Complex(0, 5.5), false],
-                [new Complex(6, 7), true],
-                [new Complex(6.5, 7), false],
-                [new Complex(6, 7.5), false],
-                [new Complex(6.5, 7.5), false],
-
-                [Complex.ZERO, true],
-                [Complex.MINUS_ONE, true],
-                [Complex.I, true],
-                [Complex.MINUS_I, true],
-
-                [Complex.INFINITY, false],
-                [Complex.NaN, false]
-            ]
-
-            table.forEach(entry => {
-                assert(entry[0].isGaussianInteger() === entry[1], entry[0] + '#isGaussianInteger()');
-            });
-        });
-
-        it('The other boolean properties should return the proper value', () => {
-            assert.isFalse(c.isZero(), '#isZero()');
-            assert(c.isFinite(), '#isFinite()');
-            assert.isFalse(c.isInfinite(), '#isInfinite()');
-            assert.isFalse(c.isNaN(), '#isNaN()');
-        });
-    });
-
-    describe('Unary Operations', () => {
-
-        it('#abs() should return the proper value', () => {
-            const r = Math.sqrt(5*5 + 7*7)
-            const table: [Complex, number][] = [
-                [new Complex(2, 0), 2],
-                [new Complex(0, 3), 3],
-                [new Complex(5, 7), r],
-                [new Complex(5, -7), r],
-                [new Complex(-5, 7), r],
-                [new Complex(-5, -7), r],
-
-                [Complex.ZERO, 0],
-                [Complex.ONE, 1],
-                [Complex.I, 1],
-                [Complex.MINUS_ONE, 1],
-                [Complex.MINUS_I, 1]
-            ]
-
-            table.forEach(entry => {
-                assert.approximately(entry[0].abs(), entry[1], epsilon, entry[0] + '#abs()');
-            });
-        });
-
-        it('#arg() should return the proper value', () => {
-            assert.isNaN(Complex.ZERO.arg());
-
-            const theta = Math.atan2(7, 5);
-            const table: [Complex, number][] = [
-                [new Complex(2, 0), 0],
-                [new Complex(0, 3), Math.PI/2],
-                [new Complex(5, 7), theta],
-                [new Complex(5, -7), -theta],
-                [new Complex(-5, 7), Math.PI - theta],
-                [new Complex(-5, -7), -Math.PI + theta],
-
-                [Complex.ONE, 0],
-                [Complex.I, Math.PI/2],
-                [Complex.MINUS_ONE, Math.PI],
-                [Complex.MINUS_I, -Math.PI/2]
-            ]
-
-            table.forEach(entry => {
-                assert.approximately(entry[0].arg(), entry[1], epsilon, entry[0] + '#arg()');
-            });
-        });
-
-        it('#neg() should return the proper value', () => {
-            const table: [Complex, Complex][] = [
-                [new Complex(2, 0), new Complex(-2, 0)],
-                [new Complex(0, 3), new Complex(0, -3)],
-
-                [new Complex(5, 7), new Complex(-5, -7)],
-                [new Complex(5, -7), new Complex(-5, 7)],
-                [new Complex(-5, 7), new Complex(5, -7)],
-                [new Complex(-5, -7), new Complex(5, 7)],
-
-                [Complex.ZERO, Complex.ZERO],
-                [Complex.ONE, Complex.MINUS_ONE],
-                [Complex.I, Complex.MINUS_I],
-                [Complex.MINUS_ONE, Complex.ONE],
-                [Complex.MINUS_I, Complex.I]
-            ]
-
-            table.forEach(entry => {
-                assert(entry[0].neg().equals(entry[1], epsilon), entry[0] + '#neg()');
-            });
-        });
-
-        describe('#conj()', () => {
-
-            it('should return the proper value', () => {
-                const table: [Complex, Complex][] = [
-                    [new Complex(2, 0), new Complex(2, 0)],
-                    [new Complex(0, 3), new Complex(0, -3)],
-
-                    [new Complex(5, 7), new Complex(5, -7)],
-                    [new Complex(5, -7), new Complex(5, 7)],
-                    [new Complex(-5, 7), new Complex(-5, -7)],
-                    [new Complex(-5, -7), new Complex(-5, 7)],
-
-                    [Complex.ZERO, Complex.ZERO],
-                    [Complex.ONE, Complex.ONE],
-                    [Complex.I, Complex.MINUS_I],
-                    [Complex.MINUS_ONE, Complex.MINUS_ONE],
-                    [Complex.MINUS_I, Complex.I]
-                ]
-
-                table.forEach(entry => {
-                    assert(entry[0].conj().equals(entry[1], epsilon), entry[0] + '#conj()');
+                it('#abs should return the proper value', () => {
+                    complexes.filter(c => c.isFinite).forEach(c => {
+                        assert.approximately(c.abs, Math.hypot(c.re, c.im), epsilon, `abs of ${c}`);
+                    });
+        
+                    assert.isFalse(isFinite(Complex.INFINITY.abs));
+                    assert.isNaN(Complex.NaN.abs);
                 });
-            });
-
-        });
-
-        describe('#recip()', () => {
-
-            it('should return NaN(C) if the operand is zero', () => {
-                assert(Complex.ZERO.recip().isNaN)
-            })
-
-            it('should return the proper value', () => {
-                const d = 5*5 + 7*7;
-                const table: [Complex, Complex][] = [
-                    [new Complex(2, 0), new Complex(1/2, 0)],
-                    [new Complex(0, 3), new Complex(0, -1/3)],
-
-                    [new Complex(5, 7), new Complex(5, -7).div(d)],
-                    [new Complex(5, -7), new Complex(5, 7).div(d)],
-                    [new Complex(-5, 7), new Complex(-5, -7).div(d)],
-                    [new Complex(-5, -7), new Complex(-5, 7).div(d)],
-
-                    [Complex.ONE, Complex.ONE],
-                    [Complex.I, Complex.MINUS_I],
-                    [Complex.MINUS_ONE, Complex.MINUS_ONE],
-                    [Complex.MINUS_I, Complex.I]
-                ]
-
-                table.forEach(entry => {
-                    assert(entry[0].recip().equals(entry[1], epsilon), entry[0] + '#recip()');
+        
+                it('#arg should return the proper value', () => {
+                    complexes.filter(c => c.isFinite && !c.isZero).forEach(c => {
+                        assert.approximately(c.arg, Math.atan2(c.im, c.re), epsilon, `arg of ${c}`);
+                    });
+        
+                    [Complex.ZERO, Complex.INFINITY, Complex.NaN].forEach(c => {
+                        assert.isNaN(c.arg);
+                    });
                 });
             });
         });
     });
 
-    describe('Binary Operations', () => {
+    describe('Unary operations', () => {
+        
+        it('#negate() should return the proper value', () => {
+            complexes.filter(c => c.isFinite).forEach(c => {
+                assertEqualComplex(c.negate(), complex(-c.re, -c.im), epsilon, `negate of ${c}`);
+                assertEqualComplex(c.negate().plus(c), Complex.ZERO, epsilon, `negate of ${c}`);
+            });
 
-        describe('#add()', () => {
+            assert(Complex.INFINITY.negate().isInfinite);
+            assert(Complex.NaN.negate().isNaN);
+        });
+
+        it('#conjugate() should return the proper value', () => {
+            complexes.filter(c => c.isFinite).forEach(c => {
+                assertEqualComplex(c.conjugate(), complex(c.re, -c.im), epsilon, `negate of ${c}`);
+                assertEqualComplex(c.conjugate().plus(c), 2*c.re, epsilon);
+                assertEqualComplex(c.conjugate().times(c), c.re*c.re + c.im*c.im, epsilon);
+            });
+
+            assert(Complex.INFINITY.conjugate().isInfinite);
+            assert(Complex.NaN.conjugate().isNaN);
+        });
+
+        it('#reciprocal() should return the proper value', () => {
+            complexes.filter(c => c.isFinite && !c.isZero).forEach(c => {
+                assertEqualComplex(c.reciprocal().times(c), Complex.ONE, epsilon, `reciprocal of ${c}`);
+            });
+
+            assert(Complex.ZERO.reciprocal().isInfinite);
+            assert(Complex.INFINITY.reciprocal().isZero);
+            assert(Complex.NaN.reciprocal().isNaN);
+        });
+    });
+
+    describe('Binary operations', () => {
+
+        describe('#plus()', () => {
 
             it('should return a sum of two complex numbers', () => {
-                repeat(100, () => {
-                    // SetUp
-                    const x1 = rand(), y1 = rand(), x2 = rand(), y2 = rand();
-                    const z1 = new Complex(x1, y1), z2 = new Complex(x2, y2),
-                          zExp = new Complex(x1 + x2, y1 + y2);
-                    // Exercise
-                    const z = z1.add(z2);
-                    // Verify
-                    assert(z.equals(zExp, epsilon), `${z1} + ${z2} != ${zExp}`);
-                });
+                function test(z1: Complex, z2: Complex){
+                    const zExp = complex(z1.re + z2.re, z1.im + z2.im);
+                    assertEqualComplex(z1.plus(z2), zExp, epsilon, `${z1} + ${z2} != ${zExp}`);
+                }
+
+                repeat(500, () => test(randComplex(), randComplex()));
+                repeat(10, () => test(Complex.ZERO, randComplex()));
+                repeat(10, () => test(Complex.ONE, randComplex()));
             });
 
-            it('should return a sum of a complex number and a real number', () => {
-                repeat(100, () => {
-                    // SetUp
-                    const x1 = rand(), y1 = rand(), x2 = rand();
-                    const z1 = new Complex(x1, y1),
-                          zExp = new Complex(x1 + x2, y1);
-                    // Exercise
-                    const z = z1.add(x2);
-                    // Verify
-                    assert(z.equals(zExp, epsilon), `${z1} + ${x2} != ${zExp}`);
-                });
+            it('should return the same result if the argument is number or Complex', () => {
+                function test(z: Complex, a: number){
+                    const zExp = z.plus(complex(a));
+                    assertEqualComplex(z.plus(a), zExp, epsilon, `${z} + ${a} != ${zExp}`);
+                }
+
+                repeat(500, () => test(randComplex(), rand()));
+                repeat(10, () => test(Complex.ZERO, rand()));
+                repeat(10, () => test(Complex.ONE, rand()));
             });
 
-            it('should return the proper value', () => {
-                assert(c.add(0).equals(c));
-                assert(c.add(Complex.ZERO).equals(c));
+            it('should return the proper value if the argument is the specific value', () => {
+                function test(z: Complex){
+                    assert(z.plus(0).equals(z));
+                    assert(z.plus(Complex.ZERO).equals(z));
 
-                assert(c.add(Infinity).isInfinite());
-                assert(c.add(-Infinity).isInfinite());
-                assert(c.add(Complex.INFINITY).isInfinite());
+                    assert(z.plus(Infinity).isInfinite);
+                    assert(z.plus(-Infinity).isInfinite);
+                    assert(z.plus(Complex.INFINITY).isInfinite);
 
-                assert(c.add(NaN).isNaN());
-                assert(c.add(Complex.NaN).isNaN());
+                    assert(z.plus(NaN).isNaN);
+                    assert(z.plus(Complex.NaN).isNaN);
+                }
+
+                repeat(10, () => test(randComplex()));
+                test(Complex.ZERO);
+                test(Complex.ONE);
+            });
+
+            it('should return the proper value if the argument is the infinity or NaN', () => {
+                repeat(10, () => {
+                    const x = rand();
+                    assert(Complex.INFINITY.plus(x).isInfinite);
+
+                    const z = randComplex();
+                    assert(Complex.INFINITY.plus(z).isInfinite);
+                });
+
+                assert(Complex.INFINITY.plus(0).isInfinite);
+                assert(Complex.INFINITY.plus(Complex.ZERO).isInfinite);
+
+                assert(Complex.INFINITY.plus(1).isInfinite);
+                assert(Complex.INFINITY.plus(Complex.ONE).isInfinite);
+
+                assert(Complex.INFINITY.plus(Infinity).isNaN);
+                assert(Complex.INFINITY.plus(-Infinity).isNaN);
+                assert(Complex.INFINITY.plus(Complex.INFINITY).isNaN);
+
+                assert(Complex.INFINITY.plus(NaN).isNaN);
+                assert(Complex.INFINITY.plus(Complex.NaN).isNaN);
+
+                complexes.forEach(z => assert(Complex.NaN.plus(z).isNaN))
             });
         });
 
-        describe('#sub()', () => {
+        describe('#minus()', () => {
 
             it('should return a difference of two complex numbers', () => {
-                repeat(100, () => {
-                    // SetUp
-                    const x1 = rand(), y1 = rand(), x2 = rand(), y2 = rand();
-                    const z1 = new Complex(x1, y1), z2 = new Complex(x2, y2),
-                          zExp = new Complex(x1 - x2, y1 - y2);
-                    // Exercise
-                    const z = z1.sub(z2);
-                    // Verify
-                    assert(z.equals(zExp, epsilon), `${z1} - ${z2} != ${zExp}`);
-                });
+                function test(z1: Complex, z2: Complex){
+                    const zExp = complex(z1.re - z2.re, z1.im - z2.im);
+                    assertEqualComplex(z1.minus(z2), zExp, epsilon, `${z1} + ${z2} != ${zExp}`);
+                }
+
+                repeat(500, () => test(randComplex(), randComplex()));
+                repeat(10, () => test(Complex.ZERO, randComplex()));
+                repeat(10, () => test(Complex.ONE, randComplex()));
             });
 
-            it('should return a difference of a complex number and a real number', () => {
-                repeat(100, () => {
-                    // SetUp
-                    const x1 = rand(), y1 = rand(), x2 = rand();
-                    const z1 = new Complex(x1, y1),
-                          zExp = new Complex(x1 - x2, y1);
-                    // Exercise
-                    const z = z1.sub(x2);
-                    // Verify
-                    assert(z.equals(zExp, epsilon), `${z1} - ${x2} != ${zExp}`);
-                });
+            it('should return the same result if the argument is number or Complex', () => {
+                function test(z: Complex, a: number){
+                    const zExp = z.minus(complex(a));
+                    assertEqualComplex(z.minus(a), zExp, epsilon, `${z} - ${a} != ${zExp}`);
+                }
+
+                repeat(500, () => test(randComplex(), rand()));
+                repeat(10, () => test(Complex.ZERO, rand()));
+                repeat(10, () => test(Complex.ONE, rand()));
             });
 
-            it('should return the proper value', () => {
-                assert(c.sub(0).equals(c));
-                assert(c.sub(Complex.ZERO).equals(c));
+            it('should return the proper value if the argument is the specific value', () => {
+                function test(z: Complex){
+                    assert(z.minus(0).equals(z));
+                    assert(z.minus(Complex.ZERO).equals(z));
 
-                assert(c.sub(Infinity).isInfinite());
-                assert(c.sub(-Infinity).isInfinite());
-                assert(c.sub(Complex.INFINITY).isInfinite());
+                    assert(z.minus(Infinity).isInfinite);
+                    assert(z.minus(-Infinity).isInfinite);
+                    assert(z.minus(Complex.INFINITY).isInfinite);
 
-                assert(c.sub(NaN).isNaN());
-                assert(c.sub(Complex.NaN).isNaN());
+                    assert(z.minus(NaN).isNaN);
+                    assert(z.minus(Complex.NaN).isNaN);
+                }
+
+                repeat(10, () => test(randComplex()));
+                test(Complex.ZERO);
+                test(Complex.ONE);
+            });
+
+            it('should return the proper value if the argument is the infinity or NaN', () => {
+                repeat(10, () => {
+                    const x = rand();
+                    assert(Complex.INFINITY.minus(x).isInfinite);
+
+                    const z = randComplex();
+                    assert(Complex.INFINITY.minus(z).isInfinite);
+                });
+
+                assert(Complex.INFINITY.minus(0).isInfinite);
+                assert(Complex.INFINITY.minus(Complex.ZERO).isInfinite);
+
+                assert(Complex.INFINITY.minus(1).isInfinite);
+                assert(Complex.INFINITY.minus(Complex.ONE).isInfinite);
+
+                assert(Complex.INFINITY.minus(Infinity).isNaN);
+                assert(Complex.INFINITY.minus(-Infinity).isNaN);
+                assert(Complex.INFINITY.minus(Complex.INFINITY).isNaN);
+
+                assert(Complex.INFINITY.minus(NaN).isNaN);
+                assert(Complex.INFINITY.minus(Complex.NaN).isNaN);
+
+                complexes.forEach(z => assert(Complex.NaN.minus(z).isNaN))
             });
         });
 
-        describe('#mul()', () => {
+        describe('#times()', () => {
 
             it('should return a product of two complex numbers', () => {
-                repeat(100, () => {
-                    // SetUp
-                    const x1 = rand(), y1 = rand(), x2 = rand(), y2 = rand();
-                    const z1 = new Complex(x1, y1), z2 = new Complex(x2, y2),
-                          zExp = new Complex(x1*x2 - y1*y2, x1*y2 + x2*y1);
-                    // Exercise
-                    const z = z1.mul(z2);
-                    // Verify
-                    assert(z.equals(zExp, epsilon), `${z1} + ${z2} != ${zExp}`);
-                });
+                function test(z1: Complex, z2: Complex){
+                    const zExp = complex(z1.re * z2.re - z1.im * z2.im, z1.re * z2.im + z1.im * z2.re);
+                    assertEqualComplex(z1.times(z2), zExp, epsilon, `${z1} * ${z2} != ${zExp}`);
+                }
+
+                repeat(500, () => test(randComplex(), randComplex()));
+                repeat(10, () => test(Complex.ZERO, randComplex()));
+                repeat(10, () => test(Complex.ONE, randComplex()));
             });
 
-            it('should return a product of a complex number and a real number', () => {
-                repeat(100, () => {
-                    // SetUp
-                    const x1 = rand(), y1 = rand(), x2 = rand();
-                    const z1 = new Complex(x1, y1),
-                          zExp = new Complex(x1 * x2, y1 * x2);
-                    // Exercise
-                    const z = z1.mul(x2);
-                    // Verify
-                    assert(z.equals(zExp, epsilon), `${z1} * ${x2} != ${zExp}`);
-                });
+            it('should return the same result if the argument is number or Complex', () => {
+                function test(z: Complex, a: number){
+                    const zExp = z.times(complex(a));
+                    assertEqualComplex(z.times(a), zExp, epsilon, `${z} * ${a} != ${zExp}`);
+                }
+
+                repeat(500, () => test(randComplex(), rand()));
+                repeat(10, () => test(Complex.ZERO, rand()));
+                repeat(10, () => test(Complex.ONE, rand()));
             });
 
-            it('should return the proper value', () => {
-                assert(c.mul(0).equals(Complex.ZERO));
-                assert(c.mul(Complex.ZERO).equals(Complex.ZERO));
+            it('should return the proper value if the argument is the specific value', () => {
+                function test(z: Complex){
+                    assert(z.times(0).isZero);
+                    assert(z.times(Complex.ZERO).isZero);
 
-                assert(c.mul(Infinity).isInfinite());
-                assert(c.mul(-Infinity).isInfinite());
-                assert(c.mul(Complex.INFINITY).isInfinite());
+                    if(z.isZero){
+                        assert(z.times(Infinity).isNaN);
+                        assert(z.times(-Infinity).isNaN);
+                        assert(z.times(Complex.INFINITY).isNaN);
+                    }else{
+                        assert(z.times(Infinity).isInfinite);
+                        assert(z.times(-Infinity).isInfinite);
+                        assert(z.times(Complex.INFINITY).isInfinite);
+                    }
 
-                assert(c.mul(NaN).isNaN());
-                assert(c.mul(Complex.NaN).isNaN());
+                    assert(z.times(NaN).isNaN);
+                    assert(z.times(Complex.NaN).isNaN);
+                }
+
+                repeat(10, () => test(randComplex()));
+                test(Complex.ZERO);
+                test(Complex.ONE);
+            });
+
+            it('should return the proper value if the argument is the infinity or NaN', () => {
+                repeat(10, () => {
+                    const x = rand();
+                    if(x === 0){
+                        assert(Complex.INFINITY.times(x).isNaN);
+                    }else{
+                        assert(Complex.INFINITY.times(x).isInfinite);
+                    }
+
+                    const z = randComplex();
+                    if(z.isZero){
+                        assert(Complex.INFINITY.times(z).isNaN);
+                    }else{
+                        assert(Complex.INFINITY.times(z).isInfinite);
+                    }
+                });
+
+                assert(Complex.INFINITY.times(0).isNaN);
+                assert(Complex.INFINITY.times(Complex.ZERO).isNaN);
+
+                assert(Complex.INFINITY.times(1).isInfinite);
+                assert(Complex.INFINITY.times(Complex.ONE).isInfinite);
+
+                assert(Complex.INFINITY.times(Infinity).isInfinite);
+                assert(Complex.INFINITY.times(-Infinity).isInfinite);
+                assert(Complex.INFINITY.times(Complex.INFINITY).isInfinite);
+
+                assert(Complex.INFINITY.times(NaN).isNaN);
+                assert(Complex.INFINITY.times(Complex.NaN).isNaN);
+
+                complexes.forEach(z => assert(Complex.NaN.times(z).isNaN))
             });
         });
 
         describe('#div()', () => {
-            // -34.80332885276536+40.155923672682036i / 0.3346473416832936+0.29204965841274344i != 0.4089697611367902+119.63783722964983i
-            it('should return a quotient of two complex numbers', () => {
-                repeat(100, () => {
-                    // SetUp
-                    const x1 = rand(), y1 = rand(), x2 = rand(), y2 = rand();
-                    const r = x2*x2 + y2*y2;
-                    const z1 = new Complex(x1, y1), z2 = new Complex(x2, y2),
-                          zExp = new Complex((x1*x2 + y1*y2)/r, (-x1*y2 + y1*x2)/r);
-                    // Exercise
-                    const z = z1.div(z2);
-                    // Verify
-                    assert(z.equals(zExp, epsi), `(${z1})/(${x2}) != ${zExp}`);
-                });
+
+            it('should return a product of two complex numbers', () => {
+                function test(z1: Complex, z2: Complex){
+                    if(z2.isZero){
+                        if(z1.isZero){
+                            assert(z1.div(z2).isNaN, `${z1} / 0 != ${Complex.NaN}: ${z1.div(z2)}`);
+                        }else{
+                            assert(z1.div(z2).isInfinite, `${z1} / 0 != ${Complex.INFINITY}: ${z1.div(z2)}`);
+                        }
+                    }else{
+                        assertEqualComplex(z1.div(z2).times(z2), z1, epsilon, 
+                                           `${z1} / ${z2} != ${z1.div(z2)}`);
+                    }
+                }
+
+                repeat(500, () => test(randComplex(), randComplex()));
+                repeat(10, () => test(Complex.ZERO, randComplex()));
+                repeat(10, () => test(Complex.ONE, randComplex()));
             });
 
-            it('should return a quotient of a complex number and a real number', () => {
-                repeat(100, () => {
-                    // SetUp
-                    const x1 = rand(), y1 = rand(), x2 = rand();
-                    const z1 = new Complex(x1, y1),
-                          zExp = new Complex(x1 / x2, y1 / x2);
-                    // Exercise
-                    const z = z1.div(x2);
-                    // Verify
-                    assert(z.equals(zExp, epsilon), `(${z1})/(${x2}) != ${zExp}`);
-                });
+            it('should return the same result if the argument is number or Complex', () => {
+                function test(z: Complex, a: number){
+                    if(z.isZero && a === 0){
+                        assert(z.div(a).isNaN, `${z} / ${a} != ${Complex.NaN}`);
+                    }else{
+                        const zExp = z.div(complex(a));
+                        assertEqualComplex(z.div(a), zExp, epsilon, `${z} / ${a} != ${zExp}`);
+                    }
+                }
+
+                repeat(500, () => test(randComplex(), rand()));
+                repeat(10, () => test(Complex.ZERO, rand()));
+                repeat(10, () => test(Complex.ONE, rand()));
             });
 
-            it('should return the proper value', () => {
-                assert(c.div(0).isInfinite());
-                assert(c.div(Complex.ZERO).isInfinite());
+            it('should return the proper value if the argument is the specific value', () => {
+                function test(z: Complex){
+                    if(z.isZero){
+                        assert(z.div(0).isNaN);
+                        assert(z.div(Complex.ZERO).isNaN);
+                    }else{
+                        assert(z.div(0).isInfinite);
+                        assert(z.div(Complex.ZERO).isInfinite);
+                    }
 
-                assert(c.div(Infinity).isZero());
-                assert(c.div(-Infinity).isZero());
-                assert(c.div(Complex.INFINITY).isZero());
+                    assert(z.div(Infinity).isZero);
+                    assert(z.div(-Infinity).isZero);
+                    assert(z.div(Complex.INFINITY).isZero,
+                           `${z} / ${Complex.INFINITY} != 0: ${z.div(Complex.INFINITY)}`);
 
-                assert(c.div(NaN).isNaN());
-                assert(c.div(Complex.NaN).isNaN());
+                    assert(z.div(NaN).isNaN);
+                    assert(z.div(Complex.NaN).isNaN);
+                }
+
+                repeat(10, () => test(randComplex()));
+                test(Complex.ZERO);
+                test(Complex.ONE);
+            });
+
+            it('should return the proper value if the argument is the infinity or NaN', () => {
+                repeat(10, () => {
+                    const x = rand();
+                    assert(Complex.INFINITY.div(x).isInfinite);
+
+                    const z = randComplex();
+                    assert(Complex.INFINITY.div(z).isInfinite);
+                });
+
+                assert(Complex.INFINITY.div(0).isInfinite);
+                assert(Complex.INFINITY.div(Complex.ZERO).isInfinite);
+
+                assert(Complex.INFINITY.div(Infinity).isNaN);
+                assert(Complex.INFINITY.div(-Infinity).isNaN);
+                assert(Complex.INFINITY.div(Complex.INFINITY).isNaN);
+
+                assert(Complex.INFINITY.div(NaN).isNaN);
+                assert(Complex.INFINITY.div(Complex.NaN).isNaN);
+
+                complexes.forEach(z => assert(Complex.NaN.div(z).isNaN))
             });
         });
 
         describe('#pow()', () => {
 
-            it('should return an integral power (Complex type) of the base complex number', () => {
-                const TWO = new Complex(2, 0), THREE = new Complex(3, 0);
-                repeat(10, () => {
-                    const x1 = rand(), y1 = rand();
-                    const z = new Complex(x1, y1);
-                    const z2 = z.mul(z), z3 = z2.mul(z);
-
-                    assertEqualComplex(z.pow(Complex.ZERO), Complex.ONE, epsi, `(${z})^0 != 1`);
-
-                    assertEqualComplex(z.pow(Complex.ONE), z, epsilon, `(${z})^1 != ${z}`);
-                    assertEqualComplex(z.pow(Complex.MINUS_ONE), z.recip(), epsilon, `(${z})^-1 != 1/z`);
-
-                    assertEqualComplex(z.pow(TWO), z2, epsilon, `(${z})^2 != ${z2}`);
-                    assertEqualComplex(z.pow(TWO.neg()), z2.recip(), epsilon, `(${z})^-2 != ${z2.recip()}`);
-
-                    assertEqualComplex(z.pow(THREE), z3, epsilon, `(${z})^3 != ${z3}`);
-                    assertEqualComplex(z.pow(THREE.neg()), z3.recip(), epsilon, `(${z})^-3 != ${z3.recip()}`);
-
-                    const m = Math.ceil(Math.random() * 15);
-                    let zm = z;
-                    for(let i = 1; i < m; i++) zm = zm.mul(z);
-                    const M = new Complex(m, 0), eps = zm.abs()*epsi;
-                    assertEqualComplex(z.pow(M), zm, eps, `(${z})^${m} != ${zm}`);
-                    assertEqualComplex(z.pow(M.neg()), zm.recip(), eps, `(${z})^-${m} != ${zm.recip()}`);
-                });
-            });
-
-            it('should return a power of the base complex number', () => {
-                repeat(100, () => {
-                    // SetUp
-                    const x1 = rand(), y1 = rand(), x2 = rand(), y2 = rand();
-                    const z1 = new Complex(x1, y1), z2 = new Complex(x2, y2),
-                          zExp = CMath.exp(z2.mul(CMath.log(z1)));
-                    // Exercise
+            it('should return the specific power of this complex number', () => {
+                function test(z1: Complex, z2: Complex){
                     const z = z1.pow(z2);
-                    // Verify
-                    assert(z.equals(zExp, epsilon), `${z1} ^ ${z2} != ${zExp}`);
-                });
+                    if(z1.isZero){
+                        if(z2.re > 0){
+                            assert(z.isZero, `(${z1})^(${z2}) != 0`);
+                        }else if(z2.re < 0){
+                            assert(z.isInfinite, `(${z1})^(${z2}) != ${Complex.INFINITY}`);
+                        }else{
+                            assert(z.isNaN, `(${z1})^(${z2}) != ${Complex.NaN}`);
+                        }
+
+                    }else if(z1.isOne){
+                        assert(z.isOne, `(${z1})^(${z2}) != 1}`)
+                    }else{
+                        const zExp = z1.log().times(z2).exp();
+                        assertEqualComplex(z, zExp, epsilon, `(${z1})^(${z2}) != ${zExp}`);
+                    }
+                }
+
+                repeat(500, () => test(randComplex(), randComplex()));
+                repeat(10, () => test(Complex.ZERO, randComplex()));
+                repeat(10, () => test(Complex.ONE, randComplex()));
             });
 
-            it('should return an integral power (number type) of a complex number', () => {
-                repeat(10, () => {
-                    const x1 = rand(), y1 = rand();
-                    const z = new Complex(x1, y1);
-                    const z2 = z.mul(z), z3 = z2.mul(z);
+            it('should return the same result if the argument is number or Complex', () => {
+                function test(z: Complex, a: number){
+                    if(z.isZero && a === 0){
+                        assert(z.pow(a).isNaN, `(${z})^${a} != ${Complex.NaN}`);
+                    }else{
+                        const zExp = z.pow(complex(a));
+                        assertEqualComplex(z.pow(a), zExp, epsilon, `(${z})^(${a}) != ${zExp}`);
+                    }
+                }
 
-                    assertEqualComplex(z.pow(0), Complex.ONE, epsi, `(${z})^0 != 1`);
-
-                    assertEqualComplex(z.pow(1), z, epsilon, `(${z})^1 != (${z})`);
-                    assertEqualComplex(z.pow(-1), z.recip(), epsilon, `(${z})^-1 != ${z.recip()}`);
-
-                    assertEqualComplex(z.pow(2), z2, epsilon, `(${z})^2 != ${z2}`);
-                    assertEqualComplex(z.pow(-2), z2.recip(), epsilon, `(${z})^-2 != ${z2.recip()}`);
-
-                    assertEqualComplex(z.pow(3), z3, epsilon, `(${z})^3 != ${z3}`);
-                    assertEqualComplex(z.pow(-3), z3.recip(), epsilon, `(${z})^-3 != ${z3.recip()}`);
-
-                    const m = Math.ceil(Math.random() * 15);
-                    let zm = z;
-                    for(let i = 1; i < m; i++) zm = zm.mul(z);
-                    const eps = zm.abs()*epsi;
-                    assertEqualComplex(z.pow(m), zm, eps, `(${z})^${m} != ${zm}`);
-                    assertEqualComplex(z.pow(-m), zm.recip(), eps, `(${z})^-${m} != ${zm.recip()}`);
-                });
+                repeat(500, () => test(randComplex(), rand()));
+                repeat(10, () => test(Complex.ZERO, rand()));
+                repeat(10, () => test(Complex.ONE, rand()));
             });
 
-            it('should return a power of a complex number', () => {
-                repeat(100, () => {
-                    // SetUp
-                    const x1 = rand(), y1 = rand(), x2 = Math.random() * 10 - 5;
-                    const z1 = new Complex(x1, y1),
-                          zExp = Complex.ofPolar(Math.pow(z1.abs(), x2), z1.arg()*x2);
-                    // Exercise
-                    const z = z1.pow(x2);
-                    // Verify
-                    assert(z.equals(zExp, z.abs()*epsilon), `(${z1}) ^ ${x2} != ${zExp}`);
-                });
+            it('should return the proper value if the argument is the specific value', () => {
+                function test(z: Complex){
+                    if(z.isZero){
+                        assert(z.pow(0).isNaN);
+                        assert(z.pow(Complex.ZERO).isNaN);
+                    }else{
+                        assert(z.pow(0).isOne);
+                        assert(z.pow(Complex.ZERO).isOne);
+                    }
+
+                    assertEqualComplex(z.pow(1), z, 0);
+                    assertEqualComplex(z.pow(Complex.ONE), z, 0);
+
+                    if(z.abs > 1){
+                        assert(z.pow(Infinity).isInfinite);
+                        assert(z.pow(-Infinity).isZero);
+                        assert(z.pow(Complex.INFINITY).isNaN);
+
+                    }else if(z.abs < 1){
+                        assert(z.pow(Infinity).isZero);
+                        assert(z.pow(-Infinity).isInfinite);
+                        assert(z.pow(Complex.INFINITY).isNaN);
+
+                    }else{
+                        if(z.arg === 0){
+                            assert(z.pow(Infinity).isOne);
+                            assert(z.pow(-Infinity).isOne);
+                            assert(z.pow(Complex.INFINITY).isOne);
+
+                        }else{
+                            assert(z.pow(Infinity).isNaN);
+                            assert(z.pow(-Infinity).isNaN);
+                            assert(z.pow(Complex.INFINITY).isNaN);
+                        }
+                    }
+
+                    assert(z.pow(NaN).isNaN);
+                    assert(z.pow(Complex.NaN).isNaN);
+                }
+
+                repeat(100, () => test(randComplex()));
+                [Complex.ZERO, Complex.ONE, Complex.MINUS_ONE, 
+                    Complex.I, Complex.MINUS_I].forEach(z => test(z));
             });
 
-            it('should return the proper value', () => {
-                assert(c.pow(0).equals(Complex.ONE));
-                assert(c.pow(Complex.ZERO).equals(Complex.ONE));
+            it('should return the proper value if the argument is the infinity or NaN', () => {
+                repeat(20, () => {
+                    const x = rand();
+                    if(x > 0){
+                        assert(Complex.INFINITY.pow(x).isInfinite);
+                    }else if(x < 0){
+                        assert(Complex.INFINITY.pow(x).isZero);
+                    }else{
+                        assert(Complex.INFINITY.pow(x).isNaN);
+                    }
 
-                // an infinite power of a complex number whose abs is greater than 1
-                assert(c.pow(Infinity).isInfinite());
-                assert(c.pow(-Infinity).isZero());
-                assert(c.pow(Complex.INFINITY).isNaN());
-
-                // an infinite power of a complex number whose abs is less than 1
-                const d = new Complex(0.1, 0.2);
-                assert(d.pow(Infinity).isZero());
-                assert(d.pow(-Infinity).isInfinite());
-                assert(d.pow(Complex.INFINITY).isNaN());
-
-                // an infinite power of 1
-                assert(Complex.ONE.pow(Infinity).equals(Complex.ONE));
-                assert(Complex.ONE.pow(-Infinity).equals(Complex.ONE));
-                assert(Complex.ONE.pow(Complex.INFINITY).equals(Complex.ONE));
-
-                // an infinite power of -1, i, and -i
-                [Complex.MINUS_ONE, Complex.I, Complex.MINUS_I].forEach(z => {
-                    assert(z.pow(Infinity).isNaN());
-                    assert(z.pow(-Infinity).isNaN());
-                    assert(z.pow(Complex.INFINITY).isNaN());
+                    const z = randComplex();
+                    if(z.re > 0){
+                        assert(Complex.INFINITY.pow(z).isInfinite);
+                    }else if(z.re < 0){
+                        assert(Complex.INFINITY.pow(z).isZero);
+                    }else{
+                        assert(Complex.INFINITY.pow(z).isNaN);
+                    }
                 });
 
-                assert(c.pow(NaN).isNaN());
-                assert(c.pow(Complex.NaN).isNaN());
+                assert(Complex.INFINITY.pow(0).isNaN);
+                assert(Complex.INFINITY.pow(Complex.ZERO).isNaN);
+
+                assert(Complex.INFINITY.pow(1).isInfinite);
+                assert(Complex.INFINITY.pow(Complex.ONE).isInfinite);
+
+                assert(Complex.INFINITY.pow(-1).isZero);
+                assert(Complex.INFINITY.pow(Complex.MINUS_ONE).isZero);
+
+                assert(Complex.INFINITY.pow(Infinity).isInfinite);
+                assert(Complex.INFINITY.pow(-Infinity).isZero);
+                assert(Complex.INFINITY.pow(Complex.INFINITY).isNaN);
+
+                assert(Complex.INFINITY.pow(NaN).isNaN);
+                assert(Complex.INFINITY.pow(Complex.NaN).isNaN);
+
+                complexes.forEach(z => assert(Complex.NaN.pow(z).isNaN))
             });
         });
     });
 
     describe('elementary functions', () => {
 
-        it('should return the same value if this is real', () => {
-            repeat(20, () => {
-                const x = rand(), z = new Complex(x, 0);
+        describe('(general complex values)', () => {
 
-                assertEqualComplex(z.exp(), Math.exp(x), epsilon, `exp(${x})`);
-                if(x > 0){
-                    assertEqualComplex(z.log(), Math.log(x), epsilon, `log(${x})`);
-                }
+            it('should return the proper complex value', () => {
+                repeat(500, () => {
+                    const x = rand(), y = rand();
+                    const z = complex(x, y);
 
-                assertEqualComplex(z.sin(), Math.sin(x)  , epsilon, `sin(${x})`);
-                assertEqualComplex(z.cos(), Math.cos(x)  , epsilon, `cos(${x})`);
-                assertEqualComplex(z.tan(), Math.tan(x)  , epsi   , `tan(${x})`);
-                assertEqualComplex(z.sec(), 1/Math.cos(x), epsilon, `sec(${x})`);
-                assertEqualComplex(z.csc(), 1/Math.sin(x), epsilon, `csc(${x})`);
-                assertEqualComplex(z.cot(), 1/Math.tan(x), epsi     , `cot(${x})`);
-                
-                assertEqualComplex(z.sinh(), Math.sinh(x)  , epsilon, `sinh(${x})`);
-                assertEqualComplex(z.cosh(), Math.cosh(x)  , epsilon, `cosh(${x})`);
-                assertEqualComplex(z.tanh(), Math.tanh(x)  , epsi     , `tanh(${x})`);
-                assertEqualComplex(z.sech(), 1/Math.cosh(x), epsilon, `sech(${x})`);
-                assertEqualComplex(z.csch(), 1/Math.sinh(x), epsilon, `csch(${x})`);
-                assertEqualComplex(z.coth(), 1/Math.tanh(x), epsi   , `coth(${x})`);
-            });
-        });
+                    // exp and log
+                    assertEqualComplex(z.exp(), Complex.ofPolar(Math.exp(x), y), epsilon, `exp(${z})`);
+                    if(z.isZero){
+                        assert(z.log().isNaN);
+                    }else{
+                        assertEqualComplex(z.log(), complex(Math.log(z.abs), z.arg), epsilon, `log(${z})`);
+                    }
 
-        it('should return the proper value if this is imaginary', () => {
-            repeat(20, () => {
-                const y = rand(), z = new Complex(0, y);
+                    // trigonometric functions
+                    assertEqualComplex(z.sin(), 
+                        complex(Math.sin(x) * Math.cosh(y), Math.cos(x) * Math.sinh(y)),
+                                epsilon, `sin(${z})`);
 
-                assertEqualComplex(z.exp(), Complex.ofPolar(1, y), epsilon, `exp(${y}i)`);
-                if(y > 0){
-                    const exp = new Complex(Math.log(y), Math.PI/2);
-                    assertEqualComplex(z.log(), exp, epsilon, `log(${y}i)`);
-                }
+                    assertEqualComplex(z.cos(), 
+                        complex(Math.cos(x) * Math.cosh(y), -Math.sin(x) * Math.sinh(y)),
+                                epsilon, `cos(${z})`);
 
-                assertEqualComplex(z.sin(), new Complex(0, Math.sinh(y))   , epsilon, `sin(${y}i)`);
-                assertEqualComplex(z.cos(), new Complex(Math.cosh(y), 0)   , epsilon, `cos(${y}i)`);
-                assertEqualComplex(z.tan(), new Complex(0, Math.tanh(y))   , epsi   , `tan(${y}i)`);
-                assertEqualComplex(z.sec(), new Complex(1/Math.cosh(y), 0) , epsilon, `sec(${y}i)`);
-                assertEqualComplex(z.csc(), new Complex(0, -1/Math.sinh(y)), epsilon, `csc(${y}i)`);
-                assertEqualComplex(z.cot(), new Complex(0, -1/Math.tanh(y)), epsi   , `cot(${y}i)`);
-                
-                assertEqualComplex(z.sinh(), new Complex(0, Math.sin(y))   , epsilon, `sinh(${y}i)`);
-                assertEqualComplex(z.cosh(), new Complex(Math.cos(y), 0)   , epsilon, `cosh(${y}i)`);
-                assertEqualComplex(z.tanh(), new Complex(0, Math.tan(y))   , epsi   , `tanh(${y}i)`);
-                assertEqualComplex(z.sech(), new Complex(1/Math.cos(y), 0) , epsilon, `sech(${y}i)`);
-                assertEqualComplex(z.csch(), new Complex(0, -1/Math.sin(y)), epsilon, `csch(${y}i)`);
-                assertEqualComplex(z.coth(), new Complex(0, -1/Math.tan(y)), epsi   , `coth(${y}i)`);
-            });
-        });
+                    const d = Math.cos(2 * x) + Math.cosh(2 * y);
+                    assertEqualComplex(z.tan(), 
+                        complex(Math.sin(2 * x) / d, Math.sinh(2 * y) / d), epsilon, `tan(${z})`);
+                    assertEqualComplex(z.cot(), z.tan().reciprocal(), epsilon, `cot(${z})`);
 
-        describe('should satisfy the following relations', () => {
+                    // hyperbolic functions
+                    assertEqualComplex(z.sinh(), 
+                        complex(Math.sinh(x) * Math.cos(y), Math.cosh(x) * Math.sin(y)),
+                                epsilon, `sinh(${z})`);
 
-            it('exp and log', () => {
-                repeat(20, () => {
-                    const z = new Complex(rand(), rand());
+                    assertEqualComplex(z.cosh(), 
+                        complex(Math.cosh(x) * Math.cos(y), Math.sinh(x) * Math.sin(y)),
+                                epsilon, `cosh(${z})`);
 
-                    // log(exp(z)) === z + 2mπi
-                    const z1 = z.exp().log();
-                    assert.approximately(z1.re, z.re, epsilon, 'log(exp(z))');
-                    const m1 = (z1.im - z.im)/(2*Math.PI)
-                    assert.approximately(m1, Math.round(m1), epsilon, 'log(exp())');
-                    
-                    // exp(log(z)) === z + 2mπi
-                    const z2 = z.exp().log();
-                    assert.approximately(z2.re, z.re, epsilon, 'exp(log(z))');
-                    const m2 = (z2.im - z.im)/(2*Math.PI)
-                    assert.approximately(m2, Math.round(m2), epsilon, 'exp(log())');
-                });
-            });
+                    const dd = Math.cosh(2 * x) + Math.cos(2 * y);
+                    assertEqualComplex(z.tanh(), 
+                        complex(Math.sinh(2 * x) / dd, Math.sin(2 * y) / dd), epsilon, `tanh(${z})`);
 
-            function rand(){ return Math.random() * 10 - 5; }
+                    assertEqualComplex(z.coth(), z.tanh().reciprocal(), epsilon, `coth(${z})`);
 
-            it('trigonometric functions', () => {
-                const z = new Complex(rand(), rand());
-                const sin_z = z.sin(), cos_z = z.cos(), tan_z = z.tan(),
-                      sec_z = z.sec(), csc_z = z.csc(), cot_z = z.cot();
-
-                assertEqualComplex(sec_z, cos_z.recip(), epsilon, 'sec z = 1/cos z');
-                assertEqualComplex(csc_z, sin_z.recip(), epsilon, 'csc z = 1/sin z');
-                assertEqualComplex(cot_z, tan_z.recip(), epsilon, 'cot z = 1/tan z');
-
-                assertEqualComplex(sin_z.pow(2).add(cos_z.pow(2)), Complex.ONE, epsi,
-                                   'sin²z + cos²z = 1');
-
-                assertEqualComplex(sec_z.pow(2).sub(tan_z.pow(2)), Complex.ONE, epsi,
-                                    '1/cos²z - tan²z = 1');
-
-                assertEqualComplex(csc_z.pow(2).sub(cot_z.pow(2)), Complex.ONE, epsi,
-                                    '1/sin²z - cot²z = 1');
-            });
-
-            it('hyperbolic functions', () => {
-                const z = new Complex(rand(), rand());
-                const sinh_z = z.sinh(), cosh_z = z.cosh(), tanh_z = z.tanh(),
-                      sech_z = z.sech(), csch_z = z.csch(), coth_z = z.coth();
-
-                assertEqualComplex(sech_z, cosh_z.recip(), epsilon, 'sech z = 1/cosh z');
-                assertEqualComplex(csch_z, sinh_z.recip(), epsilon, 'csch z = 1/sinh z');
-                assertEqualComplex(coth_z, tanh_z.recip(), epsilon, 'coth z = 1/tanh z');
-
-                assertEqualComplex(cosh_z.pow(2).sub(sinh_z.pow(2)), Complex.ONE, epsi,
-                                   'cosh²z - sinh²z = 1');
-
-                assertEqualComplex(tanh_z.pow(2).add(sech_z.pow(2)), Complex.ONE, epsi,
-                                   'tanh²z + 1/cosh²z = 1');
-
-                assertEqualComplex(coth_z.pow(2).sub(csch_z.pow(2)), Complex.ONE, epsi,
-                                   'coth²z - 1/sinh²z = 1');
-            });
-        });
-
-        describe('nth root', () => {
-
-            it('#sqrt() should return a square root of this complex number', () => {
-                repeat(20, () => {
-                    const z = new Complex(rand(), rand());
+                    // sqrt and n-root
                     const sqrt_z = z.sqrt();
-                    assertEqualComplex(sqrt_z.mul(sqrt_z), z, epsi);
-                });
-            });
+                    assertEqualComplex(sqrt_z.pow(2), z, epsilon, `sqrt(${z})`);
 
-            it('#nroots() should return n-roots of this. complex number', () => {
-                repeat(20, () => {
-                    const z = new Complex(rand(), rand());
-                    for(let i = 2; i < 10; i++){
+                    for(let i = 1; i < 10; i++){
                         const nroots = z.nroots(i);
                         nroots.forEach(root => {
-                            assertEqualComplex(root.pow(i), z, epsi, `(${root})^${i} != ${z}`);
+                            assertEqualComplex(root.pow(i), z, epsilon, `(${root})^1/${i}`);
                         });
                     }
                 });
             });
         });
-    });
 
-    describe('Zero', () => {
+        describe('(restricted complex values)', () => {
 
-        it('Numerical properties should return the ZERO', () => { 
-            assert(Complex.ZERO.re === 0);
-            assert(Complex.ZERO.im === 0);
+            it('should return the same value if this is real', () => {
+                function test(x: number){
+                    const z = complex(x, 0);
+    
+                    // exp and log
+                    assertEqualComplex(z.exp(), Math.exp(x), epsilon, `exp(${x})`);
+                    if(x > 0){
+                        assertEqualComplex(z.log(), Math.log(x), epsilon, `log(${x})`);
+                    }
+    
+                    // trigonometric functions
+                    assertEqualComplex(z.sin(), Math.sin(x)  , epsilon, `sin(${x})`);
+                    assertEqualComplex(z.cos(), Math.cos(x)  , epsilon, `cos(${x})`);
+                    assertEqualComplex(z.tan(), Math.tan(x)  , epsilon, `tan(${x})`);
+                    assertEqualComplex(z.cot(), 1/Math.tan(x), epsilon, `cot(${x})`);
+                    
+                    // hyperbolic functions
+                    assertEqualComplex(z.sinh(), Math.sinh(x)  , epsilon, `sinh(${x})`);
+                    assertEqualComplex(z.cosh(), Math.cosh(x)  , epsilon, `cosh(${x})`);
+                    assertEqualComplex(z.tanh(), Math.tanh(x)  , epsilon, `tanh(${x})`);
+                    assertEqualComplex(z.coth(), 1/Math.tanh(x), epsilon, `coth(${x})`);
+    
+                    // sqrt and n-root
+                    if(x > 0){
+                        assertEqualComplex(z.sqrt(), Math.sqrt(x), epsilon, `sqrt(${x})`);
+                    }else if(x < 0){
+                        assertEqualComplex(z.sqrt(), complex(0, Math.sqrt(-x)), epsilon, `sqrt(${x})`);
+                    }else{
+                        assertEqualComplex(z.sqrt(), Complex.ZERO, 0, 'sqrt(0)');
+                    }
 
-            assert(Complex.ZERO.abs() === 0);
-            assert.isNaN(Complex.ZERO.arg());
-        });
-
-        it('boolean properties should return the proper value', () => {
-            assert(Complex.ZERO.isReal());
-            assert.isFalse(Complex.ZERO.isImaginary());
-            assert(Complex.ZERO.isZero());
-            assert(Complex.ZERO.isInteger());
-            assert(Complex.ZERO.isGaussianInteger());
-            assert(Complex.ZERO.isFinite());
-            assert.isFalse(Complex.ZERO.isInfinite());
-            assert.isFalse(Complex.ZERO.isNaN());
-        });
-
-        it('Unary operators should return the proper value', () => { 
-            assert(Complex.ZERO.neg().equals(Complex.ZERO));
-            assert(Complex.ZERO.conj().equals(Complex.ZERO));
-
-            assert(Complex.ZERO.recip().equals(Complex.INFINITY));
-        });
-
-        describe('Binary operators', () => {
-
-            it('#add() should return the proper value', () => {
-                assert(Complex.ZERO.add(3).equals(new Complex(3, 0)));
-                assert(Complex.ZERO.add(c).equals(c));
-
-                assert(Complex.ZERO.add(0).isZero());
-                assert(Complex.ZERO.add(Complex.ZERO).isZero());
-
-                assert(Complex.ZERO.add(Infinity).isInfinite());
-                assert(Complex.ZERO.add(-Infinity).isInfinite());
-                assert(Complex.ZERO.add(Complex.INFINITY).isInfinite());
-
-                assert(Complex.ZERO.add(NaN).isNaN());
-                assert(Complex.ZERO.add(Complex.NaN).isNaN());
+                    for(let i = 1; i < 10; i++){
+                        const nroots = z.nroots(i);
+                        nroots.forEach(root => {
+                            assertEqualComplex(root.pow(i), z, epsilon, 
+                                               `${root} is not a ${i}-th root of ${z}`);
+                        });
+                    }
+                }
+    
+                repeat(500, () => test(rand()));
+                [0, 1, -1].forEach(x => test(x));
             });
+    
+            it('should return the proper value if this is imaginary', () => {
+                function test(y: number){
+                    const z = complex(0, y);
+    
+                    // exp and log
+                    assertEqualComplex(z.exp(), Complex.ofPolar(1, y), epsilon, `exp(${y}i)`);
+                    if(y > 0){
+                        const exp = complex(Math.log(y), Math.PI/2);
+                        assertEqualComplex(z.log(), exp, epsilon, `log(${y}i)`);
+                    }
+    
+                    // trigonometric functions
+                    assertEqualComplex(z.sin(), complex(0, Math.sinh(y))   , epsilon, `sin(${y}i)`);
+                    assertEqualComplex(z.cos(), complex(Math.cosh(y), 0)   , epsilon, `cos(${y}i)`);
+                    assertEqualComplex(z.tan(), complex(0, Math.tanh(y))   , epsi   , `tan(${y}i)`);
+                    assertEqualComplex(z.cot(), complex(0, -1/Math.tanh(y)), epsi   , `cot(${y}i)`);
+                    
+                    // hyperbolic functions
+                    assertEqualComplex(z.sinh(), complex(0, Math.sin(y))   , epsilon, `sinh(${y}i)`);
+                    assertEqualComplex(z.cosh(), complex(Math.cos(y), 0)   , epsilon, `cosh(${y}i)`);
+                    assertEqualComplex(z.tanh(), complex(0, Math.tan(y))   , epsi   , `tanh(${y}i)`);
+                    assertEqualComplex(z.coth(), complex(0, -1/Math.tan(y)), epsi   , `coth(${y}i)`);
+    
+                    // sqrt and n-root
+                    if(y > 0){
+                        const yy = Math.sqrt(y) * Math.SQRT1_2;
+                        assertEqualComplex(z.sqrt(), complex(yy, yy), epsilon, `sqrt(${y}i)`);
+                    }else if(y < 0){
+                        const yy = Math.sqrt(-y) * Math.SQRT1_2;
+                        assertEqualComplex(z.sqrt(), complex(yy, -yy), epsilon, `sqrt(${y}i)`);
+                    }
 
-            it('#sub() should return the proper value', () => {
-                assert(Complex.ZERO.sub(3).equals(new Complex(-3, 0)));
-                assert(Complex.ZERO.sub(c).equals(c.neg()));
-
-                assert(Complex.ZERO.sub(0).isZero());
-                assert(Complex.ZERO.sub(Complex.ZERO).isZero());
-
-                assert(Complex.ZERO.sub(Infinity).isInfinite());
-                assert(Complex.ZERO.sub(-Infinity).isInfinite());
-                assert(Complex.ZERO.sub(Complex.INFINITY).isInfinite());
-
-                assert(Complex.ZERO.sub(NaN).isNaN());
-                assert(Complex.ZERO.sub(Complex.NaN).isNaN());
+                    for(let i = 1; i < 10; i++){
+                        const nroots = z.nroots(i);
+                        nroots.forEach(root => {
+                            assertEqualComplex(root.pow(i), z, epsilon,
+                                               `${root} is not a ${i}-th root of ${z}`);
+                        });
+                    }
+                }
+    
+                repeat(500, () => test(rand()));
+                [1, -1].forEach(y => test(y));
             });
-
-            it('#mul() should return the proper value', () => {
-                assert(Complex.ZERO.mul(3).equals(Complex.ZERO));
-                assert(Complex.ZERO.mul(c).equals(Complex.ZERO));
-
-                assert(Complex.ZERO.mul(0).isZero());
-                assert(Complex.ZERO.mul(Complex.ZERO).isZero());
-
-                assert(Complex.ZERO.mul(Infinity).isNaN());
-                assert(Complex.ZERO.mul(-Infinity).isNaN());
-                assert(Complex.ZERO.mul(Complex.INFINITY).isNaN());
-
-                assert(Complex.ZERO.mul(NaN).isNaN());
-                assert(Complex.ZERO.mul(Complex.NaN).isNaN());
-            });
-
-            it('#div() should return the proper value', () => {
-                assert(Complex.ZERO.div(3).equals(Complex.ZERO));
-                assert(Complex.ZERO.div(c).equals(Complex.ZERO));
-
-                assert(Complex.ZERO.div(0).isNaN());
-                assert(Complex.ZERO.div(Complex.ZERO).isNaN());
-
-                assert(Complex.ZERO.div(Infinity).isZero());
-                assert(Complex.ZERO.div(-Infinity).isZero());
-                assert(Complex.ZERO.div(Complex.INFINITY).isZero());
-
-                assert(Complex.ZERO.div(NaN).isNaN());
-                assert(Complex.ZERO.div(Complex.NaN).isNaN());
-            });
-
-            it('#pow() should return the proper value', () => {
-                assert(Complex.ZERO.pow(2).isZero);
-                assert(Complex.ZERO.pow(-3).isInfinite());
-                assert(Complex.ZERO.pow(new Complex(4, 0)).isZero());
-                assert(Complex.ZERO.pow(new Complex(-5, 0)).isInfinite());
-                assert(Complex.ZERO.pow(new Complex(6, 7)).isZero());
-                assert(Complex.ZERO.pow(new Complex(-8, 9)).isInfinite());
-
-                assert(Complex.ZERO.pow(0).isNaN());
-                assert(Complex.ZERO.pow(Complex.ZERO).isNaN());
-
-                assert(Complex.ZERO.pow(Infinity).isZero());
-                assert(Complex.ZERO.pow(-Infinity).isInfinite());
-                assert(Complex.ZERO.pow(Complex.INFINITY).isNaN());
-
-                assert(Complex.ZERO.pow(NaN).isNaN());
-                assert(Complex.ZERO.pow(Complex.NaN).isNaN());
-            });
-        });
-    });
-
-    describe('Infinity', () => {
-
-        it('Complex instance is the Infinity(C) if one of the arguments of constructor is so', () => {
-            const table: Complex[] = [
-                new Complex(2, Infinity),
-                new Complex(Infinity, 3),
-                new Complex(Infinity, Infinity),
-                new Complex(4, -Infinity),
-                new Complex(-Infinity, 5),
-                new Complex(-Infinity, -Infinity),
-
-                new Complex(Infinity, -Infinity),
-                new Complex(-Infinity, Infinity),
-            ]
-
-            table.forEach(c => {
-                assert.isFalse(c.isFinite());
-                assert(c.isInfinite());
-                assert.isFalse(isFinite(c.re));
-                assert.isFalse(isFinite(c.im));
-            });
-        })
-
-        it('Numerical properties should return the Infinity', () => { 
-            assert.isFalse(isFinite(Complex.INFINITY.re));
-            assert.isFalse(isFinite(Complex.INFINITY.im));
-
-            assert.isFalse(isFinite(Complex.INFINITY.abs()));
-            assert.isNaN(Complex.INFINITY.arg());
-        });
-
-        it('boolean properties should return the proper value', () => {
-            assert.isFalse(Complex.INFINITY.isReal());
-            assert.isFalse(Complex.INFINITY.isImaginary());
-            assert.isFalse(Complex.INFINITY.isZero());
-            assert.isFalse(Complex.INFINITY.isInteger());
-            assert.isFalse(Complex.INFINITY.isGaussianInteger());
-            assert.isFalse(Complex.INFINITY.isFinite());
-            assert(Complex.INFINITY.isInfinite());
-            assert.isFalse(Complex.INFINITY.isNaN());
-        });
-
-        it('Unary operators should return the proper value', () => { 
-            assert.isFalse(Complex.INFINITY.neg().isFinite());
-            assert.isFalse(Complex.INFINITY.conj().isFinite());
-
-            assert(Complex.INFINITY.recip().equals(Complex.ZERO));
-        });
-
-        describe('Binary operators', () => {
-
-            it('#add() should return the proper value', () => {
-                assert(Complex.INFINITY.add(5).isInfinite());
-                assert(Complex.INFINITY.add(c).isInfinite());
-
-                assert(Complex.INFINITY.add(0).isInfinite());
-                assert(Complex.INFINITY.add(Complex.ZERO).isInfinite());
-
-                assert(Complex.INFINITY.add(Infinity).isNaN());
-                assert(Complex.INFINITY.add(-Infinity).isNaN());
-                assert(Complex.INFINITY.add(Complex.INFINITY).isNaN());
-
-                assert(Complex.INFINITY.add(NaN).isNaN());
-                assert(Complex.INFINITY.add(Complex.NaN).isNaN());
-            });
-
-            it('#sub() should return the proper value', () => {
-                assert(Complex.INFINITY.sub(5).isInfinite());
-                assert(Complex.INFINITY.sub(c).isInfinite());
-
-                assert(Complex.INFINITY.sub(0).isInfinite());
-                assert(Complex.INFINITY.sub(Complex.ZERO).isInfinite());
-
-                assert(Complex.INFINITY.sub(Infinity).isNaN());
-                assert(Complex.INFINITY.sub(-Infinity).isNaN());
-                assert(Complex.INFINITY.sub(Complex.INFINITY).isNaN());
-
-                assert(Complex.INFINITY.sub(NaN).isNaN());
-                assert(Complex.INFINITY.sub(Complex.NaN).isNaN());
-            });
-
-            it('#mul() should return the proper value', () => {
-                assert(Complex.INFINITY.mul(5).isInfinite());
-                assert(Complex.INFINITY.mul(c).isInfinite());
-
-                assert(Complex.INFINITY.mul(0).isNaN());
-                assert(Complex.INFINITY.mul(Complex.ZERO).isNaN());
-
-                assert(Complex.INFINITY.mul(Infinity).isInfinite());
-                assert(Complex.INFINITY.mul(-Infinity).isInfinite());
-                assert(Complex.INFINITY.mul(Complex.INFINITY).isInfinite());
-
-                assert(Complex.INFINITY.mul(NaN).isNaN());
-                assert(Complex.INFINITY.mul(Complex.NaN).isNaN());
-            });
-
-            it('#div() should return the proper value', () => {
-                assert(Complex.INFINITY.div(5).isInfinite());
-                assert(Complex.INFINITY.div(c).isInfinite());
-
-                assert(Complex.INFINITY.div(0).isInfinite());
-                assert(Complex.INFINITY.div(Complex.ZERO).isInfinite());
-
-                assert(Complex.INFINITY.div(Infinity).isNaN());
-                assert(Complex.INFINITY.div(-Infinity).isNaN());
-                assert(Complex.INFINITY.div(Complex.INFINITY).isNaN());
-
-                assert(Complex.INFINITY.div(NaN).isNaN());
-                assert(Complex.INFINITY.div(Complex.NaN).isNaN());
-            });
-
-            it('#pow() should return the proper value', () => {
-                assert(Complex.INFINITY.pow(2).isInfinite());
-                assert(Complex.INFINITY.pow(-3).isZero());
-                assert(Complex.INFINITY.pow(new Complex(4, 0)).isInfinite());
-                assert(Complex.INFINITY.pow(new Complex(-5, 0)).isZero());
-                assert(Complex.INFINITY.pow(new Complex(6, 7)).isInfinite());
-                assert(Complex.INFINITY.pow(new Complex(-8, 9)).isZero());
-
-                assert(Complex.INFINITY.pow(0).isNaN());
-                assert(Complex.INFINITY.pow(Complex.ZERO).isNaN());
-
-                assert(Complex.INFINITY.pow(Infinity).isInfinite());
-                assert(Complex.INFINITY.pow(-Infinity).isZero());
-                assert(Complex.INFINITY.pow(Complex.INFINITY).isNaN());
-
-                assert(Complex.INFINITY.pow(NaN).isNaN());
-                assert(Complex.INFINITY.pow(Complex.NaN).isNaN());
-            });
-        });
-
-        it('elementary functions should return Infinity(C)', () => {
-            const table: Complex[] = [
+    
+            it('should return the proper value if this is Infinity(C)', () => {
+                // assert(Math.exp(Infinity) === Infinity);
+                // assert(Math.exp(-Infinity) === 0);
+                assert(Complex.INFINITY.exp().isInfinite);
                 
-                Complex.INFINITY.sqrt(),
-
-                Complex.INFINITY.exp(),
-                Complex.INFINITY.log(),
-
-                // Complex.INFINITY.sin(),
-                // Complex.INFINITY.cos(),
-                // Complex.INFINITY.tan(),
-                // Complex.INFINITY.sec(),
-                // Complex.INFINITY.csc(),
-                // Complex.INFINITY.cot(),
+                // assert(Math.log(Infinity) === Infinity);
+                // assert.isNaN(Math.log(-Infinity));
+                assert(Complex.INFINITY.log().isInfinite);
                 
-                // Complex.INFINITY.sinh(),
-                // Complex.INFINITY.cosh(),
-                // Complex.INFINITY.tanh(),
-                // Complex.INFINITY.sech(),
-                // Complex.INFINITY.csch(),
-                // Complex.INFINITY.coth()
-            ]
-
-            table.forEach(c => {
-                assert(c.isInfinite);
+                // assert.isNaN(Math.sin(Infinity));
+                // assert.isNaN(Math.sin(-Infinity));
+                assert(Complex.INFINITY.sin().isInfinite);
+                
+                // assert.isNaN(Math.cos(Infinity));
+                // assert.isNaN(Math.cos(-Infinity));
+                assert(Complex.INFINITY.cos().isInfinite);
+                
+                // assert.isNaN(Math.tan(Infinity));
+                // assert.isNaN(Math.tan(-Infinity));
+                assert(Complex.INFINITY.tan().isInfinite);
+                
+                assert(Complex.INFINITY.cot().isZero);
+                
+                assert.isFalse(isFinite(Math.sinh(Infinity)));
+                assert.isFalse(isFinite(Math.sinh(-Infinity)));
+                assert(Complex.INFINITY.sinh().isInfinite);
+                
+                assert.isFalse(isFinite(Math.cosh(Infinity)));
+                assert.isFalse(isFinite(Math.cosh(-Infinity)));
+                assert(Complex.INFINITY.cosh().isInfinite);
+                
+                assert.equal(Math.tanh(Infinity), 1);
+                assert.equal(Math.tanh(-Infinity), -1);
+                assert(Complex.INFINITY.tanh().isInfinite);
+                
+                assert(Complex.INFINITY.coth().isZero);
+    
+                assert(Complex.INFINITY.sqrt().isInfinite);
+                for(let i = 1; i <= 10; i++){
+                    const roots = Complex.INFINITY.nroots(i);
+                    assert.equal(roots.length, 1);
+                    assert(roots[0].isInfinite);
+                }
+            });
+    
+            it('should return NaN(C) if this is NaN(C)', () => {
+                const table: Complex[] = [
+                    Complex.NaN.exp(), Complex.NaN.log(),
+    
+                    Complex.NaN.sin(), Complex.NaN.cos(),
+                    Complex.NaN.tan(), Complex.NaN.cot(),
+                    
+                    Complex.NaN.sinh(), Complex.NaN.cosh(),
+                    Complex.NaN.tanh(), Complex.NaN.coth(),
+    
+                    Complex.NaN.sqrt()
+                ]
+    
+                table.forEach(c => assert(c.isNaN));
+    
+                for(let i = 1; i <= 10; i++){
+                    const roots = Complex.NaN.nroots(i);
+                    assert(roots.length == 0);
+                }
             });
         });
-    });
 
-    describe('NaN', () => {
+        describe('Identities', () => {
 
-        it('Complex instance is NaN(C) if at least one of the arguments of constructor is NaN', () => {
-            const table: Complex[] = [
-                new Complex(NaN, NaN),
-                new Complex(NaN, 2),
-                new Complex(3, NaN)
-            ]
+            function rand(){ return Math.random() * 10 - 5; }
 
-            table.forEach(c => {
-                assert(c.isNaN);
-                assert.isNaN(c.re);
-                assert.isNaN(c.im);
+            it('exp and log', () => {
+                repeat(100, () => {
+                    const z = complex(rand(), rand());
+
+                    // log(exp(z)) === z + 2mπi
+                    const z1 = z.exp().log();
+                    assert.approximately(z1.re, z.re, epsilon, `log(exp(z)) at z = ${z}`);
+                    const m1 = (z1.im - z.im)/(2*Math.PI)
+                    assert.approximately(m1, Math.round(m1), epsilon, `log(exp(z)) at z = ${z}`);
+                    
+                    // exp(log(z)) === z + 2mπi
+                    const z2 = z.exp().log();
+                    assert.approximately(z2.re, z.re, epsilon, `exp(log(z)) at z = ${z}`);
+                    const m2 = (z2.im - z.im)/(2*Math.PI)
+                    assert.approximately(m2, Math.round(m2), epsilon, `exp(log(z)) at z = ${z}`);
+                });
             });
-        })
 
-        it('NaN(C) should be neither real or imaginary', () => {
-            assert.isFalse(Complex.NaN.isReal());
-            assert.isFalse(Complex.NaN.isImaginary());
-        });
+            it('trigonometric functions', () => {
+                repeat(100, () => {
+                    const z = complex(rand(), rand());
+                    const sin_z = z.sin(), cos_z = z.cos(), 
+                    tan_z = z.tan(), cot_z = z.cot();
 
-        it('Numerical properties should return NaN', () => { 
-            assert.isNaN(Complex.NaN.re);
-            assert.isNaN(Complex.NaN.im);
+                    assertEqualComplex(cot_z, tan_z.reciprocal(), epsilon, `cot z = 1/tan z at z = ${z}`);
 
-            assert.isNaN(Complex.NaN.abs());
-            assert.isNaN(Complex.NaN.arg());
-        });
+                    assertEqualComplex(sin_z.pow(2).plus(cos_z.pow(2)), Complex.ONE, epsi,
+                                      `sin²z + cos²z = 1 at z = ${z}`);
 
-        it('boolean properties should return the proper value', () => {
-            assert.isFalse(Complex.NaN.isReal());
-            assert.isFalse(Complex.NaN.isImaginary());
-            assert.isFalse(Complex.NaN.isZero());
-            assert.isFalse(Complex.NaN.isInteger());
-            assert.isFalse(Complex.NaN.isGaussianInteger());
-            assert.isFalse(Complex.NaN.isFinite());
-            assert.isFalse(Complex.NaN.isInfinite());
-            assert(Complex.NaN.isNaN());
-        });
+                    assertEqualComplex(tan_z.pow(2).plus(Complex.ONE), cos_z.pow(2).reciprocal(), epsi,
+                                      `tan²z + 1 = 1/cos²z at z = ${z}`);
 
-        it('Unary operators should return NaN or NaN(C)', () => { 
-            assert(Complex.NaN.neg().isNaN());
-            assert(Complex.NaN.conj().isNaN());
-            assert(Complex.NaN.recip().isNaN());
-        });
+                    assertEqualComplex(Complex.ONE.plus(cot_z.pow(2)), sin_z.pow(2).reciprocal(), epsi,
+                                      `1 + cot²z = 1/sin²z at z = ${z}`);
+                });
+            });
 
-        it('Binary operators should return NaN(C)', () => {
-            const table: (Complex | number)[] = [
-                5, c,
-                0, Complex.ZERO, 
-                Infinity, -Infinity, Complex.INFINITY, 
-                NaN, Complex.NaN
-            ]
+            it('hyperbolic functions', () => {
+                repeat(100, () => {
+                    const z = complex(rand(), rand());
+                    const sinh_z = z.sinh(), cosh_z = z.cosh(), 
+                    tanh_z = z.tanh(), coth_z = z.coth();
 
-            table.forEach(z => {
-                assert(Complex.NaN.add(z).isNaN());
-                assert(Complex.NaN.sub(z).isNaN());
-                assert(Complex.NaN.mul(z).isNaN());
-                assert(Complex.NaN.div(z).isNaN());
-                assert(Complex.NaN.pow(z).isNaN());
-            })
-        });
+                    assertEqualComplex(coth_z, tanh_z.reciprocal(), epsilon, `coth z = 1/tanh z at z = ${z}`);
 
-        it('elementary functions should return NaN(C)', () => {
-            const table: Complex[] = [
-                Complex.NaN.sqrt(),
+                    assertEqualComplex(Complex.ONE.plus(sinh_z.pow(2)), cosh_z.pow(2), epsi,
+                                      `1 + sinh²z = cosh²z at z = ${z}`);
 
-                Complex.NaN.exp(),
-                Complex.NaN.log(),
+                    assertEqualComplex(cosh_z.pow(2).reciprocal().plus(tanh_z.pow(2)), Complex.ONE, epsi,
+                                      `1/cosh²z + tanh²z = 1 at z = ${z}`);
 
-                Complex.NaN.sin(),
-                Complex.NaN.cos(),
-                Complex.NaN.tan(),
-                Complex.NaN.sec(),
-                Complex.NaN.csc(),
-                Complex.NaN.cot(),
-                
-                Complex.NaN.sinh(),
-                Complex.NaN.cosh(),
-                Complex.NaN.tanh(),
-                Complex.NaN.sech(),
-                Complex.NaN.csch(),
-                Complex.NaN.coth()
-            ]
-
-            table.forEach(c => {
-                assert(c.isNaN());
+                    assertEqualComplex(sinh_z.pow(2).reciprocal().plus(Complex.ONE), coth_z.pow(2), epsi,
+                                      `1/sinh²z + 1 = coth²z at z = ${z}`);
+                });
             });
         });
     });
