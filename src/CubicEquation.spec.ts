@@ -13,11 +13,11 @@ describe('cubic equation', () => {
 
         it('should be the proper string', () => {
             const table: [CubicEquation, string][] = [
-                [CubicEquation.new(1, 0, 0, 0)    , 'x³ = 0'],
-                [CubicEquation.new(1, 1, 1, 1)    , 'x³ + x² + x + 1 = 0'],
-                [CubicEquation.new(-1, -1, -1, -1), '- x³ - x² - x - 1 = 0'],
-                [CubicEquation.new(2, 2, 2, 2)    , '2x³ + 2x² + 2x + 2 = 0'],
-                [CubicEquation.new(-2, -2, -2, -2), '-2x³ - 2x² - 2x - 2 = 0']
+                [new CubicEquation(1, 0, 0, 0)    , 'x³ = 0'],
+                [new CubicEquation(1, 1, 1, 1)    , 'x³ + x² + x + 1 = 0'],
+                [new CubicEquation(-1, -1, -1, -1), '- x³ - x² - x - 1 = 0'],
+                [new CubicEquation(2, 2, 2, 2)    , '2x³ + 2x² + 2x + 2 = 0'],
+                [new CubicEquation(-2, -2, -2, -2), '-2x³ - 2x² - 2x - 2 = 0']
             ]
             
             table.forEach(entry => {
@@ -190,10 +190,10 @@ describe('cubic equation', () => {
         describe('#realRoots()', () => {
 
             it('should return real roots', () => {
-                repeat(10, () => {
+                repeat(20, () => {
                     // SetUp
                     const a = rand();
-                    const eq = CubicEquation.new(a !== 0 ? a : 1, rand(), rand(), rand());
+                    const eq = new CubicEquation(a !== 0 ? a : 1, rand(), rand(), rand());
                     // Exercise
                     const roots = eq.realRoots()
                     // Verify
@@ -206,9 +206,9 @@ describe('cubic equation', () => {
             it('should solve the equation that has the triple root', () => {
                 // SetUp
                 const table: [CubicEquation, number][] = [
-                    [CubicEquation.new(1, 3, 3, 1), -1],
+                    [new CubicEquation(1, 3, 3, 1), -1],
                     [CubicEquation.fromRoots(1, 1, 1, 2), 1],
-                    [CubicEquation.new(2*2*2, 3*2*2*5, 3*2*5*5, 5*5*5), -5/2],
+                    [new CubicEquation(2*2*2, 3*2*2*5, 3*2*5*5, 5*5*5), -5/2],
                 ]
                 table.forEach(entry => {
                     const eq = entry[0];

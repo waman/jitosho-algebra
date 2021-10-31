@@ -1,38 +1,166 @@
-import { Complex } from "./Complex";
 
 /**
- * CubicEquation class can be instantiated by the static *new* method.
+ * Ref: 『Javaによるアルゴリズム事典』3次方程式 (cubic equation) Cardano.java
  */
-export abstract class CubicEquation {
+export class CubicEquation {
 
-    abstract get a(): number;
-    abstract get b(): number;
-    abstract get c(): number;
-    abstract get d(): number;
+    constructor(public readonly a: number,
+                public readonly b: number,
+                public readonly c: number,
+                public readonly d: number){
+        if(a === 0) throw new Error('The coefficient of x^3 must not be zero');
+    }
 
     /** *(3ac - b²)/3a²* */
-    abstract get p(): number;
+    get p(): number {
+        return this.c / this.a - this.b * this.b / (3 * this.a * this.a);
+    }
+
     /** *(2b³ - 9abc + 27a²d)/27a³* */
-    abstract get q(): number;
+    get q(): number {
+        const b = this.b / this.a,
+              c = this.c / this.a,
+              d = this.d / this.a;
+        return 2*b*b*b/27 - b*c/3 + d;
+    }
 
     /**
      * Return a value of *ax³ + bx² + cx + d* with the specified *x*.
      */
-    abstract f(x: number): number;
+    f(x: number): number {
+        return ((this.a * x + this.b) * x + this.c) * x + this.d
+    }
 
     /**
      * Return the discriminant *-(4p³ + 27q²)* = *a⁴(r₁ - r₂)²(r₂ - r₃)²(r₃ - r₁)²*,
      * where *r*s are the three roots of this cubic equation.
      */
-    abstract get discriminant(): number;
+    get discriminant(): number {
+        const b = this.b / this.a,
+              c = this.c / this.a,
+              d = this.d / this.a,
+
+              p = c - b*b/3,
+              q = 2*b*b*b/27 - b*c/3 + d;
+        return -(4*p*p*p + 27*q*q);
+            
+    }
 
     /**
      * Return the cubic equation *x³ + px + q = 0*.
      */
-    abstract depressed(): CubicEquation;
+    depressed(): CubicEquation {
+        const b = this.b/this.a,
+              c = this.c/this.a,
+              d = this.d/this.a;
+        return new CubicEquation(1, 0, c - b*b/3, 2*b*b*b/27 - b*c/3 + d);
+    }
 
-    abstract realRoots(): number[];
-    // abstract complexRoots(): Complex[]
+    realRoots(): number[] {
+        const b = this.b / this.a,
+              c = this.c / this.a,
+              d = this.d / this.a,
+              p = c - b*b/3,
+              q = 2*b*b*b/27 - b*c/3 + d;
+        return this.solve(p, q, b/3);
+        // const b = this.b / (3 * this.a),
+        //       c = this.c / this.a,
+        //       d = this.d / this.a,
+              
+        //       p = b * b - c / 3,
+        //       q = (b * (c - 2 * b * b) - d) / 2,
+              
+        //       delta = q * q - p * p * p;
+
+        // if(delta === 0){
+        //     const r = Math.cbrt(q);
+        //     return [2 * r - b, -r - b];
+
+        // }else if(delta > 0){
+        //     const a3 = q > 0 ? Math.cbrt(q + Math.sqrt(delta)):
+        //                        Math.cbrt(q - Math.sqrt(delta)),
+        //           b3 = p / a3,
+        //           x1 = a3 + b3 - b;
+        //     return [x1];
+
+        // }else{
+        //     const r = 2 * Math.sqrt(p),
+        //           t = Math.acos(q / (p * delta)),
+        //           x1 = r * Math.cos( t                / 3) - b,
+        //           x2 = r * Math.cos((t + 2 * Math.PI) / 3) - b,
+        //           x3 = r * Math.cos((t + 4 * Math.PI) / 3) - b;
+        //     return [x1, x2, x3];
+        // }
+    }
+
+    /** 
+     * Ref: 『Javaによるアルゴリズム事典』3次方程式 (cubic equation) Cardano.java
+     */
+    private solve(p: number, q: number, b: number): number[] {
+        const disc = -(4*p*p*p + 27*q*q);
+    
+        if(disc === 0){
+            if(q === 0) return [-b];
+            
+            const r = Math.cbrt(q/2)
+            return [-2*r - b,  r - b];
+    
+        }else if(disc < 0){
+            const a3 = q > 0 ? Math.cbrt(-q/2 - Math.sqrt(-disc/108)):
+                               Math.cbrt(-q/2 + Math.sqrt(-disc/108));
+            return [a3 - p/(3*a3) - b];
+    
+        }else{
+            const r = 2 * Math.sqrt(-p/3),
+                  t = Math.acos(3*q / (2*p * Math.sqrt(-p/3))),
+                  x1 = r * Math.cos( t                / 3),
+                  x2 = r * Math.cos((t + 2 * Math.PI) / 3),
+                  x3 = r * Math.cos((t + 4 * Math.PI) / 3);
+            return [x1 - b, x2 - b, x3 - b];
+        }
+    }
+
+    complexRoots<C>(complexFactory: (x: number, y: number) => C){
+        const b = this.b / this.a,
+              c = this.c / this.a,
+              d = this.d / this.a,
+              p = c - b*b/3,
+              q = 2*b*b*b/27 - b*c/3 + d;
+        return this.solveInComplex(p, q, b/3, complexFactory);
+    }
+
+    /** 
+     * Ref: 『Javaによるアルゴリズム事典』3次方程式 (cubic equation) Cardano.java
+     */
+    private solveInComplex<C>(
+            p: number, q: number, b: number,
+            complexFactory: (x: number, y: number) => C): C[] {
+        const disc = -(4*p*p*p + 27*q*q);
+    
+        if(disc === 0){
+            if(q === 0) return [complexFactory(-b, 0)];
+            
+            const r = Math.cbrt(q/2)
+            return [complexFactory(-2*r - b, 0),  complexFactory(r - b, 0)];
+    
+        }else if(disc < 0){
+            const a3 = q > 0 ? Math.cbrt(-q/2 - Math.sqrt(-disc/108)):
+                              Math.cbrt(-q/2 + Math.sqrt(-disc/108)),
+                  b3 = -p/(3*a3),
+                  x1 = a3 + b3,
+                  x2 = -x1 / 2 - b,
+                  x3 = Math.abs(a3 - b3) * Math.sqrt(3) / 2;
+            return [complexFactory(x1 - b, 0), complexFactory(x2, x3), complexFactory(x2, -x3)];
+    
+        }else{
+            const r = 2 * Math.sqrt(-p/3),
+                  t = Math.acos(3*q / (2*p * Math.sqrt(-p/3))),
+                  x1 = r * Math.cos( t                / 3),
+                  x2 = r * Math.cos((t + 2 * Math.PI) / 3),
+                  x3 = r * Math.cos((t + 4 * Math.PI) / 3);
+            return [complexFactory(x1 - b, 0), complexFactory(x2 - b, 0), complexFactory(x3 - b, 0)];
+        }
+    }
 
     toString(): string {
         return cubicTerm(this.a) + lowerTerm(this.b, 2) + 
@@ -68,20 +196,10 @@ export abstract class CubicEquation {
     } 
 
     /**
-     * Return new CubicEquation instance *ax³ + bx² + cx + d = 0*.
-     */
-    static new(a = 1, b = 0, c = 0, d = 0): CubicEquation{
-        if(a === 1 && b === 0)
-            return new DepressedCubicEquation(c, d);
-        else
-            return new GeneralCubicEquation(a, b, c, d);
-    }
-
-    /**
      * Return new CubicEquation instance *x³ + px + q = 0*.
      */
     static depressed(p: number, q: number): CubicEquation {
-        return new DepressedCubicEquation(p, q);
+        return new CubicEquation(1, 0, p, q);
     }
 
     /**
@@ -91,198 +209,10 @@ export abstract class CubicEquation {
         const b = -a * (x0 + x1 + x2),
               c = a * (x0*x1 + x1*x2 + x2*x0),
               d = -a * x0 * x1 * x2;
-        return GeneralCubicEquation.new(a, b, c, d);
+        return new CubicEquation(a, b, c, d);
     }
 }
 
-/** 
- * Ref: 『Javaによるアルゴリズム事典』3次方程式 (cubic equation) Cardano.java
- */
-function solveDepressed(p: number, q: number): number[] {
-    const disc = -(4*p*p*p + 27*q*q);
-
-    if(p === 0){  // This case is actually included in disc < 0
-        return [Math.cbrt(-q)];
-
-    }else if(q === 0){
-        // if(p >= 0) return [0];
-        if(p > 0) return [0];
-        const r = Math.sqrt(-p);
-        return [-r, 0, r];
-
-    }else if(disc === 0){
-        const r = Math.cbrt(q/2)
-        return [-2*r,  r];
-
-    }else if(disc < 0){
-        const w = Math.cbrt(-q/2 + Math.sqrt(-disc/108));
-        // the following w is needed when the above p === 0 case is removed
-        // const w = q > 0 ? Math.cbrt(-q/2 - Math.sqrt(-disc/108)):
-        //                   Math.cbrt(-q/2 + Math.sqrt(-disc/108));
-        return [w - p/(3*w)];
-
-    }else{
-        const r = 2 * Math.sqrt(-p/3),
-              t = Math.acos(3*q / (2*p * Math.sqrt(-p/3))),
-              x1 = r * Math.cos( t                / 3),
-              x2 = r * Math.cos((t + 2 * Math.PI) / 3),
-              x3 = r * Math.cos((t + 4 * Math.PI) / 3);
-        return [x1, x2, x3];
-    }
-
-}
-
-/**
- * Cubic equation in the form of *x³ + px + q = 0*.
- */
-class DepressedCubicEquation extends CubicEquation {
-
-    constructor(public readonly p: number, public readonly q: number){
-        super();
-    }
-
-    get a(): number { return 1;}
-    get b(): number { return 0;}
-    get c(): number { return this.p; }
-    get d(): number { return this.q; }
-
-    f(x: number): number {
-        return (x * x + this.p) * x + this.q;
-    }
-
-    get discriminant(): number {
-        return -(4*this.p*this.p*this.p + 27*this.q*this.q);
-    }
-
-    depressed(): CubicEquation { return this; }
-
-    realRoots(): number[] {
-        return solveDepressed(this.p, this.q);
-    }
-
-    // complexRoots(): Complex[] {
-    //     throw new Error("Method not implemented.");
-    // }
-}
-
-/**
- * Cubic equation in the form of *ax³ + bx² + cx + d = 0*.
- */
-class GeneralCubicEquation extends CubicEquation{
-
-    constructor(public readonly a: number,
-                public readonly b: number,
-                public readonly c: number,
-                public readonly d: number){
-        super();
-        if(a === 0) throw new Error('The coefficient of x^3 must not be zero');
-    }
-
-    get p(): number {
-        return this.c / this.a - this.b * this.b / (3 * this.a * this.a);
-    }
-
-    get q(): number {
-        const b = this.b / this.a,
-              c = this.c / this.a,
-              d = this.d / this.a;
-        return 2*b*b*b/27 - b*c/3 + d;
-    }
-
-    f(x: number): number {
-        return ((this.a * x + this.b) * x + this.c) * x + this.d
-    }
-
-    get discriminant(): number {
-        const b = this.b / this.a,
-              c = this.c / this.a,
-              d = this.d / this.a,
-
-              p = c - b*b/3,
-              q = 2*b*b*b/27 - b*c/3 + d;
-        return -(4*p*p*p + 27*q*q);
-            
-    }
-
-    depressed(): CubicEquation {
-        const b = this.b/this.a,
-              c = this.c/this.a,
-              d = this.d/this.a;
-        return new DepressedCubicEquation(c - b*b/3, 2*b*b*b/27 - b*c/3 + d);
-    }
-
-    /** 
-     * Ref: 『Javaによるアルゴリズム事典』3次方程式 (cubic equation) Cardano.java
-     */
-    realRoots(): number[] {
-        // const b = this.b / (3 * this.a),
-        //       c = this.c / this.a,
-        //       d = this.d / this.a,
-              
-        //       p = b * b - c / 3,
-        //       q = (b * (c - 2 * b * b) - d) / 2,
-              
-        //       delta = q * q - p * p * p;
-
-        // if(delta === 0){
-        //     const r = Math.cbrt(q);
-        //     return [2 * r - b, -r - b];
-
-        // }else if(delta > 0){
-        //     const a3 = q > 0 ? Math.cbrt(q + Math.sqrt(delta)):
-        //                        Math.cbrt(q - Math.sqrt(delta)),
-        //           b3 = p / a3,
-        //           x1 = a3 + b3 - b;
-        //     return [x1];
-
-        // }else{
-        //     const r = 2 * Math.sqrt(p),
-        //           t = Math.acos(q / (p * delta)),
-        //           x1 = r * Math.cos( t                / 3) - b,
-        //           x2 = r * Math.cos((t + 2 * Math.PI) / 3) - b,
-        //           x3 = r * Math.cos((t + 4 * Math.PI) / 3) - b;
-        //     return [x1, x2, x3];
-        // }
-        const b = this.b / this.a,
-              c = this.c / this.a,
-              d = this.d / this.a,
-              p = c - b*b/3,
-              q = 2*b*b*b/27 - b*c/3 + d;
-        const t = b/3;
-        return solveDepressed(p, q).map(rt => rt - t);
-    }
-
-    // complexRoots(): Complex[] {
-    //     const b = this.b / (3 * this.a),
-    //           c = this.c / this.a,
-    //           d = this.d / this.a,
-
-    //           p = b * b - c / 3,
-    //           q = (b * (c - 2 * b * b) - d) / 2,
-
-    //           delta = q * q - p * p * p;
-
-    //     if(delta === 0){
-    //         const qCbrt = Math.cbrt(q);
-    //         return [new Complex(2 * qCbrt - b, 0), new Complex(-qCbrt - b, 0)];
-
-    //     }else if(delta > 0){
-    //         const a3 = q > 0 ? Math.cbrt(q + Math.sqrt(delta)):
-    //                            Math.cbrt(q - Math.sqrt(delta)),
-    //               b3 = p / a3,
-    //               x1 = a3 + b3 - b,
-    //               x2 = -0.5 * (a3 + b3) - b,
-    //               x3 = Math.abs(a3 - b3) * Math.sqrt(3) / 2;
-    //         return [new Complex(x1, 0), new Complex(x2, x3), new Complex(x2, -x3)];
-
-    //     }else{
-    //         const aSqrt = Math.sqrt(p);
-    //         const t = Math.acos(q / (p * delta)),
-    //               aa = aSqrt * 2,
-    //               x1 = aa * Math.cos( t                / 3) - b,
-    //               x2 = aa * Math.cos((t + 2 * Math.PI) / 3) - b,
-    //               x3 = aa * Math.cos((t + 4 * Math.PI) / 3) - b;
-    //         return [new Complex(x1, 0), new Complex(x2, 0), new Complex(x3, 0)];
-    //     }
-    // }
+const tupleComplexFactory: (x: number, y: number) => [number, number] = (x, y) => {
+    return [x, y];
 }
